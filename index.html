@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#14082e" />
+    <title>Magic Sort</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='14' width='64' height='64' fill='%23140b32'/%3E%3Cpath d='M22 12h20v8H22z' fill='%23d8f0ff' opacity='.7'/%3E%3Cpath d='M18 22h28v28a10 10 0 0 1-28 0z' fill='%23b44dff'/%3E%3Cpath d='M18 36h28v14a10 10 0 0 1-28 0z' fill='%233defff'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div id="stars"></div>
+    <div class="orb a"></div>
+    <div class="orb b"></div>
+
+    <div class="app">
+      <section id="screen-menu" class="screen">
+        <div class="brand">
+          <p>Яркий сортировщик</p>
+          <h1>
+            <span class="magic">Magic</span>
+            <span class="sort">Sort</span>
+          </h1>
+        </div>
+        <p class="lead">
+          Переливай неоновые цвета по колбам, пока каждая не станет одноцветной.
+          16 уровней — от лёгких до экспертных. На каждом уровне ровно 1:30.
+        </p>
+        <div id="howto" class="howto hidden">
+          Нажми на колбу с жидкостью, затем на другую. Лить можно только на такой
+          же цвет или в пустую колбу. Сразу переливается вся верхняя цепочка
+          одного цвета. Успей разложить пазл до конца таймера.
+        </div>
+        <div class="menu-actions">
+          <button id="btn-play" class="btn" type="button">Играть</button>
+          <button id="btn-howto" class="btn secondary" type="button">Как играть</button>
+        </div>
+      </section>
+
+      <section id="screen-levels" class="screen hidden">
+        <div class="screen-head">
+          <button id="btn-back" class="btn ghost" type="button">Назад</button>
+          <h2>Уровни</h2>
+          <span></span>
+        </div>
+        <div id="level-grid"></div>
+      </section>
+
+      <section id="screen-game" class="screen hidden">
+        <header class="hud">
+          <div class="hud-block">
+            <span id="hud-level">Ур. 1</span>
+            <span id="hud-name">Первые капли</span>
+            <span id="hud-diff" class="chip easy">Легко</span>
+          </div>
+          <div id="hud-time" class="timer">1:30</div>
+          <div class="hud-block right">
+            <span id="hud-moves">0</span>
+            <span>ходов</span>
+          </div>
+        </header>
+        <div class="board-wrap">
+          <canvas id="board"></canvas>
+        </div>
+        <div class="toolbar">
+          <button id="btn-undo" class="btn ghost" type="button">Отмена</button>
+          <button id="btn-restart" class="btn secondary" type="button">Заново</button>
+          <button id="btn-menu" class="btn ghost" type="button">Меню</button>
+        </div>
+        <footer class="banner">
+          <p id="slogan">SORT WATER!</p>
+        </footer>
+      </section>
+    </div>
+
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <h3 id="overlay-title">Победа</h3>
+        <p id="overlay-detail"></p>
+        <div id="overlay-stars" class="stars"></div>
+        <div class="modal-actions">
+          <button id="btn-next" class="btn" type="button">Дальше</button>
+          <button id="btn-retry" class="btn secondary" type="button">Ещё раз</button>
+          <button id="btn-overlay-menu" class="btn ghost" type="button">К уровням</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+</html>
