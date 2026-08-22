@@ -153,6 +153,42 @@
     return moves;
   }
 
+  function findSolution(bottles, capacity, limit) {
+    var maxVisited = limit || 120000;
+    var start = cloneBottles(bottles);
+    if (isSolved(start, capacity)) {
+      return [];
+    }
+    var visited = Object.create(null);
+    var stack = [{ bottles: start, moves: [] }];
+    visited[hashState(start)] = true;
+    var seen = 1;
+
+    while (stack.length) {
+      var node = stack.pop();
+      var moves = listMoves(node.bottles, capacity);
+      for (var m = 0; m < moves.length; m += 1) {
+        var next = cloneBottles(node.bottles);
+        pour(next[moves[m].from], next[moves[m].to], capacity);
+        var key = hashState(next);
+        if (visited[key]) {
+          continue;
+        }
+        var path = node.moves.concat([{ from: moves[m].from, to: moves[m].to }]);
+        if (isSolved(next, capacity)) {
+          return path;
+        }
+        visited[key] = true;
+        seen += 1;
+        if (seen > maxVisited) {
+          return null;
+        }
+        stack.push({ bottles: next, moves: path });
+      }
+    }
+    return null;
+  }
+
   function isSolvable(bottles, capacity, limit) {
     var maxVisited = limit || 120000;
     var start = cloneBottles(bottles);
@@ -262,6 +298,7 @@
     hashState: hashState,
     listMoves: listMoves,
     isSolvable: isSolvable,
+    findSolution: findSolution,
     mulberry32: mulberry32,
     shuffle: shuffle,
     dealBottles: dealBottles,

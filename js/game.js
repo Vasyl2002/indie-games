@@ -553,5 +553,15 @@
   createStars();
   bindUi();
   renderLevelGrid();
+  var params = new URLSearchParams(window.location.search);
+  var startAt = parseInt(params.get("level"), 10);
+  if (params.get("screen") === "levels") {
+    state.unlocked = LEVELS.length;
+    renderLevelGrid();
+    showScreen("levels");
+  } else if (startAt >= 1 && startAt <= LEVELS.length) {
+    state.unlocked = Math.max(state.unlocked, startAt);
+    startLevel(startAt - 1);
+  }
   requestAnimationFrame(frame);
 })();

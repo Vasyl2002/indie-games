@@ -39,6 +39,15 @@ levels.forEach(function (level) {
   Object.keys(counts).forEach(function (color) {
     assert.strictEqual(counts[color], 4, color + " count on level " + level.id);
   });
+
+  var solution = logic.findSolution(level.bottles, level.capacity, 200000);
+  assert.ok(solution, "level " + level.id + " should have a move list");
+  var play = logic.cloneBottles(level.bottles);
+  solution.forEach(function (move) {
+    var poured = logic.pour(play[move.from], play[move.to], level.capacity);
+    assert.ok(poured > 0, "move should pour on level " + level.id);
+  });
+  assert.strictEqual(logic.isSolved(play, level.capacity), true);
 });
 
 console.log("levels tests passed");
