@@ -26,6 +26,8 @@
     lastTick: 0,
     stars: 0,
     unlocked: 1,
+    adOpen: false,
+    sdkPaused: false,
   };
 
   function loadProgress() {
@@ -118,6 +120,7 @@
     updateTimer();
     showScreen("game");
     resize();
+    YandexSDK.startGameplay();
   }
 
   function snapshot() {
@@ -265,6 +268,10 @@
   }
 
   function winLevel() {
+    if (state.overlay || state.adOpen) {
+      return;
+    }
+    state.adOpen = true;
     state.stars = starCount(state.timeLeft);
     if (state.levelIndex + 2 > state.unlocked) {
       state.unlocked = Math.min(LEVELS.length, state.levelIndex + 2);
@@ -272,21 +279,31 @@
     }
     audio.win();
     particles.confetti(canvas.clientWidth, canvas.clientHeight);
-    showOverlay(
-      "win",
-      "Уровень пройден!",
-      currentLevel().name +
-        " · " +
-        formatTime(state.timeLeft) +
-        " осталось · " +
-        state.moves +
-        " ходов"
-    );
+    YandexSDK.showInterstitial(function () {
+      state.adOpen = false;
+      showOverlay(
+        "win",
+        "Уровень пройден!",
+        currentLevel().name +
+          " · " +
+          formatTime(state.timeLeft) +
+          " осталось · " +
+          state.moves +
+          " ходов"
+      );
+    });
   }
 
   function loseLevel() {
+    if (state.overlay || state.adOpen) {
+      return;
+    }
+    state.adOpen = true;
     audio.lose();
-    showOverlay("lose", "Время вышло!", "Попробуй ещё раз — у тебя 1:30 на каждый уровень.");
+    YandexSDK.showInterstitial(function () {
+      state.adOpen = false;
+      showOverlay("lose", "Время вышло!", "Попробуй ещё раз — у тебя 1:30 на каждый уровень.");
+    });
   }
 
   function showOverlay(kind, title, detail) {
@@ -314,7 +331,7 @@
   }
 
   function undo() {
-    if (state.pouring || !state.history.length || state.overlay) {
+    if (state.pouring || !state.history.length || state.overlay || state.adOpen) {
       return;
     }
     var prev = state.history.pop();
@@ -325,7 +342,14 @@
   }
 
   function restart() {
-    startLevel(state.levelIndex);
+    if (state.adOpen) {
+      return;
+    }
+    state.adOpen = true;
+    YandexSDK.showInterstitial(function () {
+      state.adOpen = false;
+      startLevel(state.levelIndex);
+    });
   }
 
   function updatePour(dt) {
@@ -454,7 +478,7 @@
     var dt = Math.min(0.035, (now - state.lastTick) / 1000 || 0.016);
     state.lastTick = now;
 
-    if (state.screen === "game" && !state.overlay && !state.pouring) {
+    if (state.screen === "game" && !state.overlay && !state.pouring && !state.adOpen && !state.sdkPaused) {
       var before = Math.ceil(state.timeLeft);
       state.timeLeft -= dt;
       if (state.timeLeft <= 15 && Math.ceil(state.timeLeft) < before && state.timeLeft > 0) {
@@ -507,6 +531,7 @@
       audio.ensure();
       renderLevelGrid();
       showScreen("levels");
+      YandexSDK.stopGameplay();
     });
     document.getElementById("btn-howto").addEventListener("click", function () {
       document.getElementById("howto").classList.toggle("hidden");
@@ -518,6 +543,7 @@
       hideOverlay();
       renderLevelGrid();
       showScreen("levels");
+      YandexSDK.stopGameplay();
     });
     document.getElementById("btn-undo").addEventListener("click", undo);
     document.getElementById("btn-restart").addEventListener("click", restart);
@@ -529,6 +555,7 @@
       hideOverlay();
       renderLevelGrid();
       showScreen("levels");
+      YandexSDK.stopGameplay();
     });
     document.getElementById("btn-music").addEventListener("click", function () {
       audio.toggleMusic();
@@ -541,7 +568,7 @@
 
     canvas.addEventListener("pointerdown", function (event) {
       audio.ensure();
-      if (state.screen !== "game" || state.overlay || state.pouring) {
+      if (state.screen !== "game" || state.overlay || state.pouring || state.adOpen) {
         return;
       }
       var point = canvasPoint(event);
@@ -572,6 +599,20 @@
   bindUi();
   syncAudioButtons();
   renderLevelGrid();
+  YandexSDK.init({
+    onPause: function () {
+      state.sdkPaused = true;
+      audio.setSuspended(true);
+      YandexSDK.stopGameplay();
+    },
+    onResume: function () {
+      state.sdkPaused = false;
+      audio.setSuspended(false);
+      if (state.screen === "game" && !state.overlay && !state.adOpen) {
+        YandexSDK.startGameplay();
+      }
+    },
+  });
   var params = new URLSearchParams(window.location.search);
   var startAt = parseInt(params.get("level"), 10);
   if (params.get("screen") === "levels") {

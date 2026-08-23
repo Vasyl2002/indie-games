@@ -27,6 +27,7 @@
     this.timer = null;
     this.loopStart = 0;
     this.nextNote = 0;
+    this.suspended = false;
     this.loadPrefs();
   }
 
@@ -68,17 +69,17 @@
       }
       this.ctx = new AudioContext();
     }
-    if (this.ctx.state === "suspended") {
+    if (this.ctx.state === "suspended" && !this.suspended) {
       this.ctx.resume();
     }
-    if (this.musicOn) {
+    if (this.musicOn && !this.suspended) {
       this.startMusic();
     }
     return this.ctx;
   };
 
   GameAudio.prototype.tone = function (freq, duration, type, gain, when) {
-    if (!this.sfxOn) {
+    if (!this.sfxOn || this.suspended) {
       return;
     }
     var ctx = this.ensure();
@@ -273,6 +274,20 @@
   GameAudio.prototype.toggleSfx = function () {
     this.setSfx(!this.sfxOn);
     return this.sfxOn;
+  };
+
+  GameAudio.prototype.setSuspended = function (suspended) {
+    this.suspended = !!suspended;
+    if (!this.ctx) {
+      return;
+    }
+    if (this.suspended) {
+      if (this.ctx.state !== "suspended") {
+        this.ctx.suspend();
+      }
+    } else if (this.musicOn || this.sfxOn) {
+      this.ctx.resume();
+    }
   };
 
   global.GameAudio = GameAudio;
