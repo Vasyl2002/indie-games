@@ -504,6 +504,7 @@
 
   function bindUi() {
     document.getElementById("btn-play").addEventListener("click", function () {
+      audio.ensure();
       renderLevelGrid();
       showScreen("levels");
     });
@@ -529,6 +530,14 @@
       renderLevelGrid();
       showScreen("levels");
     });
+    document.getElementById("btn-music").addEventListener("click", function () {
+      audio.toggleMusic();
+      syncAudioButtons();
+    });
+    document.getElementById("btn-sfx").addEventListener("click", function () {
+      audio.toggleSfx();
+      syncAudioButtons();
+    });
 
     canvas.addEventListener("pointerdown", function (event) {
       audio.ensure();
@@ -549,9 +558,19 @@
     );
   }
 
+  function syncAudioButtons() {
+    var musicBtn = document.getElementById("btn-music");
+    var sfxBtn = document.getElementById("btn-sfx");
+    musicBtn.setAttribute("aria-pressed", audio.musicOn ? "true" : "false");
+    sfxBtn.setAttribute("aria-pressed", audio.sfxOn ? "true" : "false");
+    musicBtn.textContent = audio.musicOn ? "♪ Музыка" : "♪ Выкл";
+    sfxBtn.textContent = audio.sfxOn ? "🔊 Звуки" : "🔇 Выкл";
+  }
+
   loadProgress();
   createStars();
   bindUi();
+  syncAudioButtons();
   renderLevelGrid();
   var params = new URLSearchParams(window.location.search);
   var startAt = parseInt(params.get("level"), 10);
