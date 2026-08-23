@@ -1,36 +1,39 @@
 # Magic Sort
 
-Яркая HTML5-игра в жанре Water / Magic Sort: переливай цветные слои между колбами, пока каждый цвет не соберётся отдельно.
+Яркая HTML5-игра: переливай цветные слои между колбами, пока каждый цвет не соберётся отдельно.
 
-## Как запустить
+## Как запустить прямо сейчас
 
-Открой `index.html` в браузере или подними локальный сервер:
+Игра **не** откроется, если нажать `index.html` на GitHub или в Cursor — там только код, а не сама игра.
+
+**Открой игру в браузере по этой ссылке:**
+
+https://raw.githack.com/Vasyl2002/indie-games/cursor/magic-sort-game-de27/index.html
+
+## Если хочешь файлы на компьютере (без git)
+
+1. Скачай архив: https://github.com/Vasyl2002/indie-games/archive/refs/heads/cursor/magic-sort-game-de27.zip
+2. Распакуй папку
+3. Открой файл `index.html` двойным кликом — появится меню Magic Sort
+
+`git pull` игру не скачает: команда только обновляет уже клонированный репозиторий. Сама игра сейчас в ветке `cursor/magic-sort-game-de27`, а не в `main`.
+
+## Если всё же нужен git
 
 ```bash
-python3 -m http.server 8080
+git clone -b cursor/magic-sort-game-de27 https://github.com/Vasyl2002/indie-games.git
+cd indie-games
 ```
 
-Затем открой `http://localhost:8080`.
+Потом открой `index.html` в браузере. Если репозиторий уже есть:
+
+```bash
+git fetch origin
+git checkout cursor/magic-sort-game-de27
+```
 
 ## Что внутри
 
-- Базовая механика сортировки жидкости (стопки по 4 слоя)
 - 16 уровней: легко → средне → сложно → эксперт
-- Таймер **1:30** на каждом уровне
+- Таймер 1:30 на каждом уровне
 - Отмена хода, рестарт, прогресс открытия уровней
-- Canvas-анимации переливания, частицы и звуки
-
-## Файлы
-
-- `index.html` — разметка экранов
-- `css/style.css` — неоновый интерфейс
-- `js/logic.js` — правила переливания и проверка победы
-- `js/levels.js` — готовые решаемые уровни
-- `js/render.js` / `js/game.js` — отрисовка и игровой цикл
-
-## Проверки
-
-```bash
-node tests/logic.test.js
-node tests/levels.test.js
-```
