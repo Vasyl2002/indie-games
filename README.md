@@ -38,3 +38,12 @@ git checkout cursor/magic-sort-game-de27
 - Таймер 1:30 на каждом уровне
 - Отмена хода, рестарт, прогресс открытия уровней
 - Лёгкая фоновая музыка и отдельные кнопки «Музыка» / «Звуки»
+
+## Материалы для постов
+
+Готовые картинки лежат в папке `promo/`:
+
+- `promo/icon-1024.png` — иконка для площадок
+- `promo/magic-sort-cover.png` — обложка 16:9
+- `promo/screenshot-menu.png`, `screenshot-level-easy.png`, `screenshot-level-expert.png` — реальные кадры
+- `promo/magic-sort-shot-menu.png` и `magic-sort-shot-gameplay.png` — яркие промо-кадры
