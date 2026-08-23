@@ -86,10 +86,10 @@
         level.id +
         "</span>" +
         '<span class="level-name">' +
-        level.name +
+        I18n.levelName(level.id) +
         "</span>" +
         '<span class="level-diff">' +
-        config.DIFFICULTY[level.difficulty].label +
+        I18n.difficultyLabel(level.difficulty) +
         "</span>";
       button.addEventListener("click", function () {
         startLevel(index);
@@ -111,16 +111,13 @@
     state.overlay = null;
     state.slogan = config.SLOGANS[index % config.SLOGANS.length];
     hideOverlay();
-    document.getElementById("hud-level").textContent = "Ур. " + level.id;
-    document.getElementById("hud-name").textContent = level.name;
-    document.getElementById("hud-diff").textContent = config.DIFFICULTY[level.difficulty].label;
-    document.getElementById("hud-diff").className = "chip " + level.difficulty;
+    refreshHud();
     document.getElementById("hud-moves").textContent = "0";
     document.getElementById("slogan").textContent = state.slogan;
     updateTimer();
     showScreen("game");
     resize();
-    YandexSDK.startGameplay();
+    CrazySDK.gameplayStart();
   }
 
   function snapshot() {
@@ -279,18 +276,9 @@
     }
     audio.win();
     particles.confetti(canvas.clientWidth, canvas.clientHeight);
-    YandexSDK.showInterstitial(function () {
+    CrazySDK.showInterstitial(function () {
       state.adOpen = false;
-      showOverlay(
-        "win",
-        "Уровень пройден!",
-        currentLevel().name +
-          " · " +
-          formatTime(state.timeLeft) +
-          " осталось · " +
-          state.moves +
-          " ходов"
-      );
+      showOverlay("win");
     });
   }
 
@@ -300,17 +288,35 @@
     }
     state.adOpen = true;
     audio.lose();
-    YandexSDK.showInterstitial(function () {
+    CrazySDK.showInterstitial(function () {
       state.adOpen = false;
-      showOverlay("lose", "Время вышло!", "Попробуй ещё раз — у тебя 1:30 на каждый уровень.");
+      showOverlay("lose");
     });
   }
 
-  function showOverlay(kind, title, detail) {
+  function overlayCopy(kind) {
+    if (kind === "win") {
+      return {
+        title: I18n.t("winTitle"),
+        detail: I18n.t("winDetail", {
+          name: I18n.levelName(currentLevel().id),
+          time: formatTime(state.timeLeft),
+          moves: state.moves,
+        }),
+      };
+    }
+    return {
+      title: I18n.t("loseTitle"),
+      detail: I18n.t("loseDetail"),
+    };
+  }
+
+  function showOverlay(kind) {
     state.overlay = kind;
+    var copy = overlayCopy(kind);
     var overlay = document.getElementById("overlay");
-    document.getElementById("overlay-title").textContent = title;
-    document.getElementById("overlay-detail").textContent = detail;
+    document.getElementById("overlay-title").textContent = copy.title;
+    document.getElementById("overlay-detail").textContent = copy.detail;
     var stars = document.getElementById("overlay-stars");
     stars.innerHTML = "";
     if (kind === "win") {
@@ -346,7 +352,7 @@
       return;
     }
     state.adOpen = true;
-    YandexSDK.showInterstitial(function () {
+    CrazySDK.showInterstitial(function () {
       state.adOpen = false;
       startLevel(state.levelIndex);
     });
@@ -531,7 +537,7 @@
       audio.ensure();
       renderLevelGrid();
       showScreen("levels");
-      YandexSDK.stopGameplay();
+      CrazySDK.gameplayStop();
     });
     document.getElementById("btn-howto").addEventListener("click", function () {
       document.getElementById("howto").classList.toggle("hidden");
@@ -543,7 +549,7 @@
       hideOverlay();
       renderLevelGrid();
       showScreen("levels");
-      YandexSDK.stopGameplay();
+      CrazySDK.gameplayStop();
     });
     document.getElementById("btn-undo").addEventListener("click", undo);
     document.getElementById("btn-restart").addEventListener("click", restart);
@@ -555,7 +561,13 @@
       hideOverlay();
       renderLevelGrid();
       showScreen("levels");
-      YandexSDK.stopGameplay();
+      CrazySDK.gameplayStop();
+    });
+    document.getElementById("btn-lang-en").addEventListener("click", function () {
+      setLanguage("en");
+    });
+    document.getElementById("btn-lang-ru").addEventListener("click", function () {
+      setLanguage("ru");
     });
     document.getElementById("btn-music").addEventListener("click", function () {
       audio.toggleMusic();
@@ -590,28 +602,78 @@
     var sfxBtn = document.getElementById("btn-sfx");
     musicBtn.setAttribute("aria-pressed", audio.musicOn ? "true" : "false");
     sfxBtn.setAttribute("aria-pressed", audio.sfxOn ? "true" : "false");
-    musicBtn.textContent = audio.musicOn ? "♪ Музыка" : "♪ Выкл";
-    sfxBtn.textContent = audio.sfxOn ? "🔊 Звуки" : "🔇 Выкл";
+    musicBtn.textContent = audio.musicOn ? I18n.t("musicOn") : I18n.t("musicOff");
+    sfxBtn.textContent = audio.sfxOn ? I18n.t("sfxOn") : I18n.t("sfxOff");
+  }
+
+  function refreshHud() {
+    var level = currentLevel();
+    if (!level) {
+      return;
+    }
+    document.getElementById("hud-level").textContent = I18n.t("levelPrefix") + " " + level.id;
+    document.getElementById("hud-name").textContent = I18n.levelName(level.id);
+    document.getElementById("hud-diff").textContent = I18n.difficultyLabel(level.difficulty);
+    document.getElementById("hud-diff").className = "chip " + level.difficulty;
+  }
+
+  function applyStaticTexts() {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.textContent = I18n.t(el.getAttribute("data-i18n"));
+    });
+    document.querySelector(".audio-dock").setAttribute("aria-label", I18n.t("audioLabel"));
+    document.querySelector(".lang-dock").setAttribute("aria-label", I18n.t("langLabel"));
+    document.getElementById("btn-lang-en").classList.toggle("active", I18n.getLang() === "en");
+    document.getElementById("btn-lang-ru").classList.toggle("active", I18n.getLang() === "ru");
+    syncAudioButtons();
+    if (state.screen === "levels") {
+      renderLevelGrid();
+    }
+    if (state.screen === "game") {
+      refreshHud();
+    }
+    if (state.overlay) {
+      var copy = overlayCopy(state.overlay);
+      document.getElementById("overlay-title").textContent = copy.title;
+      document.getElementById("overlay-detail").textContent = copy.detail;
+    }
+  }
+
+  function setLanguage(next) {
+    I18n.setLang(next);
+    applyStaticTexts();
   }
 
   loadProgress();
   createStars();
   bindUi();
-  syncAudioButtons();
+  applyStaticTexts();
   renderLevelGrid();
-  YandexSDK.init({
+  CrazySDK.init({
     onPause: function () {
       state.sdkPaused = true;
       audio.setSuspended(true);
-      YandexSDK.stopGameplay();
+      CrazySDK.gameplayStop();
     },
     onResume: function () {
       state.sdkPaused = false;
       audio.setSuspended(false);
       if (state.screen === "game" && !state.overlay && !state.adOpen) {
-        YandexSDK.startGameplay();
+        CrazySDK.gameplayStart();
       }
     },
+  });
+  window.addEventListener(
+    "wheel",
+    function (event) {
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+  window.addEventListener("keydown", function (event) {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === " ") {
+      event.preventDefault();
+    }
   });
   var params = new URLSearchParams(window.location.search);
   var startAt = parseInt(params.get("level"), 10);
