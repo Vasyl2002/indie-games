@@ -29,7 +29,13 @@ Outside CrazyGames the game still runs; ads are skipped.
 
 Default language is **English**. Use the **EN / RU** buttons in the top-right corner to switch to Russian. The choice is saved.
 
-## Local play
+## CrazyGames cover images
+
+Exact sizes from the upload form:
+
+- `promo/cover-1920x1080.png` — Landscape 16:9
+- `promo/cover-800x1200.png` — Portrait 2:3
+- `promo/cover-800x800.png` — Square 1:1
 
 Open `index.html` or:
 
