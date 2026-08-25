@@ -17,7 +17,7 @@
       back: "Back",
       levelsTitle: "Levels",
       shuffle: "Shuffle",
-      restart: "Restart",
+      restart: "Retry",
       menu: "Menu",
       next: "Next",
       retry: "Retry",
@@ -38,8 +38,8 @@
       levels: "Уровни",
       back: "Назад",
       levelsTitle: "Уровни",
-      shuffle: "Перемешать",
-      restart: "Заново",
+      shuffle: "Микс",
+      restart: "Ещё",
       menu: "Меню",
       next: "Дальше",
       retry: "Ещё раз",
@@ -119,9 +119,9 @@
     document.getElementById("btn-levels").textContent = t("levels");
     document.getElementById("btn-back").textContent = t("back");
     document.getElementById("levels-title").textContent = t("levelsTitle");
-    document.getElementById("btn-shuffle").textContent = t("shuffle");
-    document.getElementById("btn-restart").textContent = t("restart");
-    document.getElementById("btn-menu").textContent = t("menu");
+    document.getElementById("lbl-shuffle").textContent = t("shuffle");
+    document.getElementById("lbl-restart").textContent = t("restart");
+    document.getElementById("lbl-menu").textContent = t("menu");
     document.getElementById("btn-next").textContent = t("next");
     document.getElementById("btn-retry").textContent = t("retry");
     document.getElementById("btn-overlay-menu").textContent = t("toLevels");
@@ -155,28 +155,41 @@
 
   function initThree() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 40);
-    camera.position.set(0, 8.4, 8.6);
-    camera.lookAt(0, 0.35, 0);
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    camera = new THREE.PerspectiveCamera(36, 1, 0.1, 40);
+    camera.position.set(0, 9.2, 7.4);
+    camera.lookAt(0, 0.15, 0);
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     pileGroup = new THREE.Group();
     scene.add(pileGroup);
-    scene.add(new THREE.HemisphereLight(0xfff0ff, 0x223355, 1.15));
-    var key = new THREE.DirectionalLight(0xffffff, 0.85);
-    key.position.set(4, 10, 6);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x2a303c, 0.95));
+    var key = new THREE.DirectionalLight(0xfff4e5, 1.35);
+    key.position.set(5, 12, 6);
     scene.add(key);
-    var rim = new THREE.DirectionalLight(0x88aaff, 0.35);
-    rim.position.set(-6, 2, -4);
-    scene.add(rim);
+    var fill = new THREE.DirectionalLight(0x9ecbff, 0.45);
+    fill.position.set(-6, 4, -3);
+    scene.add(fill);
+    var bounce = new THREE.DirectionalLight(0xffc9a3, 0.22);
+    bounce.position.set(0, -5, 2);
+    scene.add(bounce);
     var floor = new THREE.Mesh(
-      new THREE.CircleGeometry(4.2, 32),
-      new THREE.MeshLambertMaterial({ color: 0x1a1038, transparent: true, opacity: 0.55 })
+      new THREE.CircleGeometry(4.6, 48),
+      new THREE.MeshStandardMaterial({ color: 0x1a1d24, roughness: 0.9, metalness: 0.05 })
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.55;
+    floor.position.y = -0.62;
     scene.add(floor);
+    var shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(3.2, 32),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = -0.6;
+    scene.add(shadow);
     raycaster = new THREE.Raycaster();
     pointer = new THREE.Vector2();
     clock = new THREE.Clock();
@@ -223,32 +236,39 @@
       bag[b] = tmp;
     }
     var count = bag.length;
-    var radius = 1.15 + Math.min(2.35, Math.sqrt(count) * 0.22);
+    var radius = 1.05 + Math.min(2.2, Math.sqrt(count) * 0.2);
     bag.forEach(function (type, index) {
       var mesh = MatchItems.createItem(type);
-      var angle = (index / count) * Math.PI * 2 + Math.random() * 0.4;
-      var r = Math.sqrt((index + 1) / count) * radius * (0.72 + Math.random() * 0.4);
-      var y = Math.min(1.9, (index % 7) * 0.16 + Math.random() * 0.18);
-      mesh.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r * 0.88);
-      mesh.rotation.set(Math.random() * 0.7, Math.random() * Math.PI, Math.random() * 0.7);
-      mesh.scale.setScalar(0.88 + Math.random() * 0.18);
+      var angle = (index / count) * Math.PI * 2 + Math.random() * 0.55;
+      var r = Math.sqrt((index + 0.2) / count) * radius * (0.55 + Math.random() * 0.55);
+      var y = Math.min(2.1, (index % 8) * 0.14 + Math.random() * 0.22);
+      mesh.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r * 0.86);
+      mesh.rotation.set(Math.random() * 0.85, Math.random() * Math.PI * 2, Math.random() * 0.85);
+      mesh.scale.setScalar(0.95 + Math.random() * 0.12);
       pileGroup.add(mesh);
       state.pile.push(mesh);
     });
-    var zoom = 7.6 + Math.min(3.2, count / 28);
-    camera.position.set(0, zoom, zoom + 0.8);
-    camera.lookAt(0, 0.3, 0);
+    var zoom = 8.4 + Math.min(2.6, count / 36);
+    camera.position.set(0, zoom, zoom * 0.72);
+    camera.lookAt(0, 0.2, 0);
   }
 
   function typeIcon(type) {
-    var meta = MatchConfig.TYPE_MAP[type];
-    return (
-      '<div class="icon t-' +
-      type +
-      '" style="background:' +
-      (meta ? meta.color : "#fff") +
-      '"></div>'
-    );
+    return '<img class="toy-icon" alt="" src="' + MatchItems.iconUrl(type) + '">';
+  }
+
+  function fillMenuToys() {
+    var box = document.getElementById("menu-toys");
+    if (!box) {
+      return;
+    }
+    box.innerHTML = "";
+    ["duck", "burger", "fish", "donut", "heart", "cat"].forEach(function (type) {
+      var img = document.createElement("img");
+      img.src = MatchItems.iconUrl(type);
+      img.alt = "";
+      box.appendChild(img);
+    });
   }
 
   function renderGoals() {
@@ -533,25 +553,10 @@
       });
       state.flying = still;
       state.busy = still.length > 0;
-      pileGroup.rotation.y = Math.sin(performance.now() / 1800) * 0.08;
+      pileGroup.rotation.y = Math.sin(performance.now() / 2400) * 0.05;
       renderer.render(scene, camera);
     }
     requestAnimationFrame(frame);
-  }
-
-  function createStars() {
-    var html = "";
-    for (var i = 0; i < 60; i += 1) {
-      html +=
-        '<span style="left:' +
-        Math.random() * 100 +
-        "%;top:" +
-        Math.random() * 100 +
-        "%;animation-delay:" +
-        Math.random() * 3 +
-        's"></span>';
-    }
-    document.getElementById("stars").innerHTML = html;
   }
 
   function bindUi() {
@@ -604,8 +609,9 @@
   }
 
   loadProgress();
-  createStars();
   initThree();
+  MatchItems.warmIcons();
+  fillMenuToys();
   bindUi();
   applyLang();
   renderLevelGrid();
