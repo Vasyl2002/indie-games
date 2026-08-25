@@ -264,7 +264,7 @@
       return;
     }
     box.innerHTML = "";
-    ["duck", "burger", "fish", "donut", "heart", "cat"].forEach(function (type) {
+    ["duck", "burger", "donut", "apple", "ball", "cat"].forEach(function (type) {
       var img = document.createElement("img");
       img.src = MatchItems.iconUrl(type);
       img.alt = "";

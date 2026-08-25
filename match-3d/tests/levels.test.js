@@ -31,6 +31,6 @@ levels.forEach(function (level) {
   add(level.extras);
   assert.ok(total >= 8, "enough objects on level " + level.id);
 });
-assert.strictEqual(levels[0].time, 45);
+assert.strictEqual(levels[0].time, 50);
 assert.strictEqual(levels[19].time, 180);
 console.log("match-3d level tests passed");

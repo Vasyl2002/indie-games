@@ -103,21 +103,19 @@
 
   function makeBall() {
     var g = group("ball");
-    var geom = geo("beach", function () {
-      var s = new THREE.SphereGeometry(0.46, 48, 28);
-      var pos = s.attributes.position;
-      var colors = [];
-      var pal = [new THREE.Color("#ff3b4a"), new THREE.Color("#f6f8ff"), new THREE.Color("#3b7dff")];
-      for (var i = 0; i < pos.count; i += 1) {
-        var ang = Math.atan2(pos.getZ(i), pos.getX(i));
-        var slice = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 6) % 6;
-        var c = pal[slice % 3];
-        colors.push(c.r, c.g, c.b);
-      }
-      s.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-      return s;
-    });
-    add(g, geom, mat("beach", "#ffffff", { vertexColors: true, roughness: 0.26 }));
+    var colors = ["#ff3b4a", "#f6f8ff", "#3b7dff"];
+    for (var i = 0; i < 6; i += 1) {
+      (function (slice) {
+        var start = (slice / 6) * Math.PI * 2;
+        add(
+          g,
+          geo("wedge" + slice, function () {
+            return new THREE.SphereGeometry(0.46, 18, 28, start, Math.PI / 3);
+          }),
+          mat("beach" + (slice % 3), colors[slice % 3], { roughness: 0.22 })
+        );
+      })(i);
+    }
     return g;
   }
 
