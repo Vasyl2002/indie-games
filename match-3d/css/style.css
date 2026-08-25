@@ -197,6 +197,8 @@ body {
 }
 #hud-level {
   font-weight: 800;
+  color: #5ad6ff;
+  letter-spacing: 0.04em;
 }
 .lang-row {
   display: flex;

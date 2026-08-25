@@ -568,8 +568,7 @@
     });
     document.getElementById("btn-menu").addEventListener("click", function () {
       hideOverlay();
-      renderLevelGrid();
-      showScreen("levels");
+      showScreen("menu");
     });
     document.getElementById("btn-restart").addEventListener("click", function () {
       startLevel(state.levelIndex);
