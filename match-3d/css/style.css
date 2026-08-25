@@ -23,7 +23,7 @@ body {
   overflow: hidden;
   font-family: Fredoka, "Trebuchet MS", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: #07080c;
+  background: #063456;
   user-select: none;
 }
 
@@ -35,7 +35,7 @@ body {
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(120% 70% at 50% 0%, #2a3140 0%, #12151c 46%, #0c0e13 100%);
+    radial-gradient(120% 70% at 50% 0%, #5ec8ff 0%, #1b8ed8 48%, #0d6fb8 100%);
 }
 
 .screen {
@@ -49,7 +49,7 @@ body {
 }
 #screen-game {
   overflow: hidden;
-  background: #16181f;
+  background: linear-gradient(#1ea0ea, #0f78c4);
 }
 
 .topbar {
@@ -60,13 +60,14 @@ body {
   gap: 8px;
 }
 .game-top {
-  background: linear-gradient(#1c2028, #16181f);
+  background: linear-gradient(rgba(12, 90, 150, 0.35), rgba(12, 90, 150, 0));
 }
 #hud-level {
   font-weight: 700;
-  color: var(--cyan);
+  color: #7fffee;
   letter-spacing: 0.08em;
   font-size: 15px;
+  text-shadow: 0 2px 0 #0a4a78;
 }
 .topbar h2 {
   margin: 0;
@@ -125,8 +126,8 @@ body {
 .lang-btn {
   appearance: none;
   border: 0;
-  background: #2a303b;
-  color: #d5dae6;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
   border-radius: 999px;
   padding: 6px 10px;
   font: inherit;
@@ -165,16 +166,17 @@ body {
   min-height: 72px;
 }
 .menu-toys img {
-  width: 56px;
-  height: 56px;
-  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35));
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 8px 10px rgba(0, 40, 80, 0.35));
 }
 
 .lead {
   margin: 10px 28px 0;
   text-align: center;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.88);
   line-height: 1.35;
+  text-shadow: 0 1px 0 rgba(0, 40, 80, 0.25);
 }
 
 .menu-actions,
@@ -233,12 +235,12 @@ body {
   min-height: 64px;
   border: 0;
   border-radius: 16px;
-  color: #fff;
-  background: linear-gradient(180deg, #2c3340, #1c2028);
+  color: #12324a;
+  background: linear-gradient(180deg, #ffffff, #d7ecff);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 0 #7fb4d8;
 }
 .level-card.locked {
   opacity: 0.38;
@@ -287,7 +289,7 @@ body {
   margin: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 28%, #3a4150 0%, #1a1d24 58%, #12141a 100%);
+    radial-gradient(circle at 50% 22%, #7ad4ff 0%, #2aa4ee 42%, #1578c4 100%);
 }
 #view {
   width: 100%;

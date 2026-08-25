@@ -13,15 +13,43 @@
     return geos[name];
   }
 
+  var envMap = null;
+
+  function getEnvMap() {
+    if (envMap) {
+      return envMap;
+    }
+    var c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 256;
+    var ctx = c.getContext("2d");
+    var g = ctx.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, "#ffffff");
+    g.addColorStop(0.28, "#d7f0ff");
+    g.addColorStop(0.55, "#62b7ff");
+    g.addColorStop(1, "#1d4e7a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 512, 256);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.beginPath();
+    ctx.arc(170, 48, 46, 0, Math.PI * 2);
+    ctx.fill();
+    var tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    envMap = tex;
+    return envMap;
+  }
+
   function sph() {
     return geo("sph", function () {
-      return new THREE.SphereGeometry(0.5, 32, 24);
+      return new THREE.SphereGeometry(0.5, 48, 32);
     });
   }
 
   function cyl(name, rt, rb, h, seg) {
     return geo(name, function () {
-      return new THREE.CylinderGeometry(rt, rb, h, seg || 28);
+      return new THREE.CylinderGeometry(rt, rb, h, seg || 36);
     });
   }
 
@@ -31,8 +59,10 @@
     if (!mats[id]) {
       mats[id] = new THREE.MeshStandardMaterial({
         color: color,
-        roughness: extra.roughness != null ? extra.roughness : 0.34,
-        metalness: extra.metalness != null ? extra.metalness : 0.06,
+        roughness: extra.roughness != null ? extra.roughness : 0.28,
+        metalness: extra.metalness != null ? extra.metalness : 0.08,
+        envMap: getEnvMap(),
+        envMapIntensity: extra.envMapIntensity != null ? extra.envMapIntensity : 0.85,
         vertexColors: !!extra.vertexColors,
         emissive: extra.emissive || 0x000000,
         emissiveIntensity: extra.emissiveIntensity || 0,
@@ -62,7 +92,7 @@
     var body = mat("duck", "#ffd54a", { roughness: 0.28 });
     add(g, sph(), body, 0, -0.02, 0.04, 0.92, 0.7, 1.05);
     add(g, sph(), body, 0.28, 0.26, 0.16, 0.52);
-    add(g, cyl("beak", 0.09, 0.05, 0.26, 16), mat("beak", "#ff8a3c", { roughness: 0.4 }), 0.5, 0.22, 0.16).rotation.z = -Math.PI / 2;
+    add(g, cyl("beak", 0.11, 0.05, 0.34, 16), mat("beak", "#ff8a3c", { roughness: 0.4 }), 0.52, 0.22, 0.16).rotation.z = -Math.PI / 2;
     add(g, sph(), mat("eye", "#fff", { roughness: 0.2 }), 0.4, 0.34, 0.3, 0.12);
     add(g, sph(), mat("eye2", "#fff", { roughness: 0.2 }), 0.4, 0.34, 0.04, 0.12);
     add(g, sph(), mat("pupil", "#2b2118", { roughness: 0.4 }), 0.45, 0.35, 0.33, 0.05);
@@ -74,7 +104,7 @@
   function makeBall() {
     var g = group("ball");
     var geom = geo("beach", function () {
-      var s = new THREE.SphereGeometry(0.46, 36, 22);
+      var s = new THREE.SphereGeometry(0.46, 48, 28);
       var pos = s.attributes.position;
       var colors = [];
       var pal = [new THREE.Color("#ff3b4a"), new THREE.Color("#f6f8ff"), new THREE.Color("#3b7dff")];
@@ -338,26 +368,27 @@
       return iconRenderer;
     }
     var canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
+    canvas.width = 192;
+    canvas.height = 192;
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setSize(128, 128, false);
+    renderer.setSize(192, 192, false);
     renderer.setPixelRatio(2);
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.2;
     var scene = new THREE.Scene();
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.05));
-    var key = new THREE.DirectionalLight(0xffffff, 1.15);
+    scene.environment = getEnvMap();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x4a6a88, 1.1));
+    var key = new THREE.DirectionalLight(0xffffff, 1.35);
     key.position.set(2.2, 3.4, 2.8);
     scene.add(key);
-    var fill = new THREE.DirectionalLight(0x9ecbff, 0.35);
+    var fill = new THREE.DirectionalLight(0x9ecbff, 0.45);
     fill.position.set(-2, 1, -1);
     scene.add(fill);
-    var camera = new THREE.PerspectiveCamera(32, 1, 0.1, 20);
-    camera.position.set(0.55, 0.7, 2.15);
-    camera.lookAt(0, 0.05, 0);
+    var camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+    camera.position.set(0.45, 0.62, 1.85);
+    camera.lookAt(0, 0.02, 0);
     iconRenderer = { renderer: renderer, scene: scene, camera: camera, canvas: canvas };
     return iconRenderer;
   }
@@ -368,6 +399,7 @@
     }
     var pack = ensureIconRenderer();
     var item = createItem(type);
+    item.scale.setScalar(1.2);
     pack.scene.add(item);
     pack.renderer.render(pack.scene, pack.camera);
     pack.scene.remove(item);
@@ -386,5 +418,6 @@
     FACTORIES: FACTORIES,
     iconUrl: iconUrl,
     warmIcons: warmIcons,
+    getEnvMap: getEnvMap,
   };
 })(typeof window !== "undefined" ? window : global);
