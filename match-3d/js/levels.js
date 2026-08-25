@@ -6,11 +6,11 @@
   }
 
   global.MATCH_LEVELS = [
-    level(1, 50, { duck: 8, ball: 8 }, { burger: 4, donut: 4 }),
-    level(2, 55, { apple: 8, star: 8 }, { duck: 4, donut: 4 }),
-    level(3, 60, { donut: 8, gem: 6 }, { ball: 4, burger: 4 }),
-    level(4, 60, { cat: 8, candy: 6, balloon: 6 }),
-    level(5, 70, { cupcake: 8, heart: 8 }, { star: 6, ball: 4 }),
+    level(1, 50, { duck: 10, ball: 10 }, { burger: 4, donut: 4, apple: 4 }),
+    level(2, 55, { apple: 10, star: 10 }, { duck: 4, donut: 4, ball: 4 }),
+    level(3, 60, { donut: 10, gem: 8 }, { ball: 4, burger: 4 }),
+    level(4, 65, { cat: 10, candy: 8, balloon: 8 }),
+    level(5, 75, { cupcake: 10, heart: 10 }, { star: 6, ball: 4 }),
     level(6, 80, { burger: 8, fish: 8, duck: 6 }, { ball: 6 }),
     level(7, 90, { rocket: 8, gem: 8, apple: 8 }, { donut: 6 }),
     level(8, 95, { bell: 10, cube: 8, candy: 8 }, { cat: 6 }),

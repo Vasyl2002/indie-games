@@ -16,7 +16,10 @@ function load(file) {
 var config = load("js/config.js").MatchConfig;
 var levels = load("js/levels.js").MATCH_LEVELS;
 
-assert.strictEqual(levels.length, 20);
+assert.strictEqual(config.TRAY_SIZE, 10);
+assert.strictEqual(config.MATCH_SIZE, 2);
+assert.strictEqual(config.WIN_COINS, 30);
+assert.strictEqual(config.BOMB_COST, 30);
 levels.forEach(function (level) {
   assert.ok(level.time >= 45 && level.time <= 180, "time bounds " + level.id);
   var total = 0;

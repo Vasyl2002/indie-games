@@ -11,7 +11,7 @@
     lang: "en",
     en: {
       tagline: "3D MATCH",
-      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out.",
+      lead: "Tap toys from the pile, pair two identical ones in the 10-slot tray, and clear the goals before time runs out.",
       play: "Play",
       levels: "Levels",
       back: "Back",
@@ -26,14 +26,17 @@
       win: "Level complete!",
       loseTime: "Time's up!",
       loseTray: "Tray is full!",
-      winDetail: "Nice pairing!",
+      winDetail: "Nice pairing! +30 coins",
       loseTimeDetail: "Watch an ad for one extra minute, or retry.",
-      loseTrayDetail: "Match two identical toys before all 6 slots fill.",
+      loseTrayDetail: "Match two identical toys before all 10 slots fill.",
       level: "LEVEL",
+      bomb: "Bomb",
+      bombHint: "Tap the pile to throw the bomb",
+      noCoins: "Need 30 coins for a bomb",
     },
     ru: {
       tagline: "3D МАТЧ",
-      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели до конца таймера.",
+      lead: "Нажимай игрушки в куче, собирай пары в лотке из 10 слотов и закрой цели до конца таймера.",
       play: "Играть",
       levels: "Уровни",
       back: "Назад",
@@ -48,10 +51,13 @@
       win: "Уровень пройден!",
       loseTime: "Время вышло!",
       loseTray: "Лоток заполнен!",
-      winDetail: "Отличные пары!",
+      winDetail: "Отличные пары! +30 монет",
       loseTimeDetail: "Посмотри рекламу и получи ещё минуту — или начни заново.",
-      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 6 слотов.",
+      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 10 слотов.",
       level: "УРОВЕНЬ",
+      bomb: "Бомба",
+      bombHint: "Нажми на кучу, куда кинуть бомбу",
+      noCoins: "Нужно 30 монет на бомбу",
     },
     t: function (key) {
       return (this[this.lang] || this.en)[key] || this.en[key] || key;
@@ -72,6 +78,10 @@
     busy: false,
     adUsed: false,
     paused: false,
+    coins: 0,
+    aimingBomb: false,
+    bombFlight: null,
+    bursts: [],
   };
 
   var scene, camera, renderer, raycaster, pointer, pileGroup, clock;
@@ -81,6 +91,9 @@
       var data = JSON.parse(localStorage.getItem("pair-pop-progress") || "{}");
       if (data.unlocked) {
         state.unlocked = data.unlocked;
+      }
+      if (typeof data.coins === "number") {
+        state.coins = Math.max(0, data.coins);
       }
       if (data.lang === "ru" || data.lang === "en") {
         i18n.lang = data.lang;
@@ -93,12 +106,40 @@
   function saveProgress() {
     localStorage.setItem(
       "pair-pop-progress",
-      JSON.stringify({ unlocked: state.unlocked, lang: i18n.lang })
+      JSON.stringify({ unlocked: state.unlocked, lang: i18n.lang, coins: state.coins })
     );
   }
 
   function t(key) {
     return i18n.t(key);
+  }
+
+  function updateCoinsHud() {
+    document.querySelectorAll(".coin-count").forEach(function (el) {
+      el.textContent = String(state.coins);
+    });
+    var bombBtn = document.getElementById("btn-bomb");
+    if (bombBtn) {
+      bombBtn.classList.toggle("poor", state.coins < MatchConfig.BOMB_COST && !state.aimingBomb);
+      bombBtn.classList.toggle("aiming", !!state.aimingBomb);
+    }
+  }
+
+  function showToast(text) {
+    var el = document.getElementById("toast");
+    el.textContent = text;
+    el.classList.remove("hidden");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(function () {
+      el.classList.add("hidden");
+    }, 1600);
+  }
+
+  function setBombAim(on) {
+    state.aimingBomb = !!on;
+    document.body.classList.toggle("bomb-aim", state.aimingBomb);
+    document.getElementById("bomb-hint").classList.toggle("hidden", !state.aimingBomb);
+    updateCoinsHud();
   }
 
   function showScreen(name) {
@@ -122,6 +163,9 @@
     document.getElementById("lbl-shuffle").textContent = t("shuffle");
     document.getElementById("lbl-restart").textContent = t("restart");
     document.getElementById("lbl-menu").textContent = t("menu");
+    document.getElementById("lbl-bomb").textContent = t("bomb");
+    document.getElementById("bomb-hint").textContent = t("bombHint");
+    document.getElementById("bomb-cost").textContent = String(MatchConfig.BOMB_COST);
     document.getElementById("btn-next").textContent = t("next");
     document.getElementById("btn-retry").textContent = t("retry");
     document.getElementById("btn-overlay-menu").textContent = t("toLevels");
@@ -136,6 +180,7 @@
       document.getElementById("hud-level").textContent = t("level") + " " + (state.levelIndex + 1);
       renderGoals();
     }
+    updateCoinsHud();
   }
 
   function renderLevelGrid() {
@@ -324,6 +369,8 @@
     state.busy = false;
     state.adUsed = false;
     state.paused = false;
+    setBombAim(false);
+    clearBursts();
     hideOverlay();
     document.getElementById("hud-level").textContent = t("level") + " " + level.id;
     spawnLevel(level);
@@ -391,7 +438,11 @@
       state.unlocked = Math.min(MATCH_LEVELS.length, state.levelIndex + 2);
       saveProgress();
     }
+    state.coins += MatchConfig.WIN_COINS;
+    saveProgress();
+    updateCoinsHud();
     audio.win();
+    audio.coin();
     showOverlay("win", t("win"), t("winDetail"), false);
   }
 
@@ -444,7 +495,7 @@
     state.flying.push({
       mesh: mesh,
       from: world.clone(),
-      to: new THREE.Vector3((slotIndex - 2.5) * 0.85, -2.6, 2.8),
+      to: new THREE.Vector3((slotIndex - (TRAY_SIZE - 1) / 2) * 0.42, -2.55, 2.8),
       t: 0,
       type: mesh.userData.type,
     });
@@ -483,6 +534,10 @@
     var y = (event.clientY - rect.top) / rect.height;
     pointer.set(x * 2 - 1, -(y * 2) + 1);
     raycaster.setFromCamera(pointer, camera);
+    if (state.aimingBomb) {
+      throwBomb();
+      return;
+    }
     var hits = raycaster.intersectObjects(state.pile, true);
     if (!hits.length) {
       return;
@@ -497,6 +552,96 @@
     }
     if (state.pile.indexOf(root) >= 0) {
       pickFromPile(root);
+    }
+  }
+
+  function getAimPoint() {
+    var hits = raycaster.intersectObjects(state.pile, true);
+    if (hits.length) {
+      return hits[0].point.clone();
+    }
+    var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.15);
+    var target = new THREE.Vector3();
+    if (raycaster.ray.intersectPlane(plane, target)) {
+      return target;
+    }
+    return new THREE.Vector3(0, 0.3, 0);
+  }
+
+  function throwBomb() {
+    if (state.coins < MatchConfig.BOMB_COST) {
+      showToast(t("noCoins"));
+      setBombAim(false);
+      return;
+    }
+    var world = getAimPoint();
+    state.coins -= MatchConfig.BOMB_COST;
+    saveProgress();
+    updateCoinsHud();
+    setBombAim(false);
+    state.busy = true;
+    var bomb = MatchItems.createBomb();
+    bomb.position.copy(camera.position).add(new THREE.Vector3(0, -1.2, -1.4));
+    scene.add(bomb);
+    state.bombFlight = {
+      mesh: bomb,
+      from: bomb.position.clone(),
+      to: world,
+      t: 0,
+    };
+  }
+
+  function explodeAt(worldPoint) {
+    audio.boom();
+    var local = pileGroup.worldToLocal(worldPoint.clone());
+    var radius = MatchConfig.BLAST_RADIUS;
+    state.pile.forEach(function (mesh) {
+      var dx = mesh.position.x - local.x;
+      var dy = mesh.position.y - local.y;
+      var dz = mesh.position.z - local.z;
+      var dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.05;
+      if (dist < radius) {
+        var force = (1 - dist / radius) * 1.85;
+        mesh.userData.toss = {
+          vx: (dx / dist) * force + (Math.random() - 0.5) * 0.5,
+          vy: 1.35 + force * 0.8,
+          vz: (dz / dist) * force + (Math.random() - 0.5) * 0.5,
+          spin: (Math.random() - 0.5) * 10,
+        };
+      }
+    });
+    spawnBurst(worldPoint);
+  }
+
+  function spawnBurst(worldPoint) {
+    var group = new THREE.Group();
+    group.position.copy(worldPoint);
+    scene.add(group);
+    var bits = [];
+    var colors = ["#ff9a2e", "#ffe566", "#ff4d3a", "#fff"];
+    for (var i = 0; i < 18; i += 1) {
+      var geo = new THREE.SphereGeometry(0.09, 8, 8);
+      var mat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length] });
+      var mesh = new THREE.Mesh(geo, mat);
+      group.add(mesh);
+      bits.push({
+        mesh: mesh,
+        vx: (Math.random() - 0.5) * 4,
+        vy: Math.random() * 3.2,
+        vz: (Math.random() - 0.5) * 4,
+      });
+    }
+    state.bursts.push({ group: group, bits: bits, t: 0 });
+  }
+
+  function clearBursts() {
+    state.bursts.forEach(function (burst) {
+      scene.remove(burst.group);
+    });
+    state.bursts = [];
+    if (state.bombFlight) {
+      scene.remove(state.bombFlight.mesh);
+      state.bombFlight = null;
     }
   }
 
@@ -553,7 +698,59 @@
         }
       });
       state.flying = still;
-      state.busy = still.length > 0;
+      if (state.bombFlight) {
+        state.bombFlight.t += dt / 0.38;
+        var bu = Math.min(1, state.bombFlight.t);
+        var easeB = 1 - Math.pow(1 - bu, 2);
+        state.bombFlight.mesh.position.lerpVectors(state.bombFlight.from, state.bombFlight.to, easeB);
+        state.bombFlight.mesh.position.y += Math.sin(bu * Math.PI) * 1.35;
+        state.bombFlight.mesh.rotation.x += dt * 8;
+        if (bu >= 1) {
+          var dest = state.bombFlight.to.clone();
+          scene.remove(state.bombFlight.mesh);
+          state.bombFlight = null;
+          explodeAt(dest);
+        }
+      }
+      state.pile.forEach(function (mesh) {
+        var toss = mesh.userData.toss;
+        if (!toss) {
+          return;
+        }
+        toss.vy -= 9 * dt;
+        mesh.position.x += toss.vx * dt;
+        mesh.position.y += toss.vy * dt;
+        mesh.position.z += toss.vz * dt;
+        mesh.rotation.y += toss.spin * dt;
+        if (mesh.position.y < 0) {
+          mesh.position.y = 0;
+          toss.vy *= -0.32;
+          toss.vx *= 0.72;
+          toss.vz *= 0.72;
+          if (Math.abs(toss.vy) < 0.45) {
+            mesh.userData.toss = null;
+          }
+        }
+      });
+      var liveBursts = [];
+      state.bursts.forEach(function (burst) {
+        burst.t += dt;
+        burst.bits.forEach(function (bit) {
+          bit.vy -= 8 * dt;
+          bit.mesh.position.x += bit.vx * dt;
+          bit.mesh.position.y += bit.vy * dt;
+          bit.mesh.position.z += bit.vz * dt;
+          var s = Math.max(0.02, 1 - burst.t * 2.1);
+          bit.mesh.scale.setScalar(s);
+        });
+        if (burst.t < 0.55) {
+          liveBursts.push(burst);
+        } else {
+          scene.remove(burst.group);
+        }
+      });
+      state.bursts = liveBursts;
+      state.busy = still.length > 0 || !!state.bombFlight;
       pileGroup.rotation.y = Math.sin(performance.now() / 2400) * 0.05;
       renderer.render(scene, camera);
     }
@@ -580,6 +777,21 @@
       startLevel(state.levelIndex);
     });
     document.getElementById("btn-shuffle").addEventListener("click", shufflePile);
+    document.getElementById("btn-bomb").addEventListener("click", function () {
+      audio.ensure();
+      if (state.overlay || state.busy) {
+        return;
+      }
+      if (state.aimingBomb) {
+        setBombAim(false);
+        return;
+      }
+      if (state.coins < MatchConfig.BOMB_COST) {
+        showToast(t("noCoins"));
+        return;
+      }
+      setBombAim(true);
+    });
     document.getElementById("btn-next").addEventListener("click", function () {
       startLevel(Math.min(MATCH_LEVELS.length - 1, state.levelIndex + 1));
     });
@@ -615,6 +827,7 @@
   fillMenuToys();
   bindUi();
   applyLang();
+  updateCoinsHud();
   renderLevelGrid();
   requestAnimationFrame(frame);
 })();

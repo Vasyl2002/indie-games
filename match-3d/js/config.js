@@ -26,9 +26,12 @@
   });
 
   global.MatchConfig = {
-    TRAY_SIZE: 6,
+    TRAY_SIZE: 10,
     MATCH_SIZE: 2,
     MAX_TIME: 180,
+    WIN_COINS: 30,
+    BOMB_COST: 30,
+    BLAST_RADIUS: 1.95,
     TYPES: TYPES,
     TYPE_MAP: TYPE_MAP,
   };

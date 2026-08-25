@@ -14,7 +14,7 @@
     <div class="app">
       <section id="screen-menu" class="screen">
         <header class="topbar">
-          <div></div>
+          <div id="menu-coins" class="coins"><span class="coin-ic"></span><span class="coin-count">0</span></div>
           <div></div>
           <div class="lang-row">
             <button class="lang-btn active" data-lang="en" type="button">EN</button>
@@ -27,7 +27,7 @@
         </div>
         <div id="menu-toys" class="menu-toys"></div>
         <p class="lead" id="lead">
-          Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out.
+          Tap toys from the pile, pair two identical ones in the 10-slot tray, and clear the goals before time runs out.
         </p>
         <div class="menu-actions">
           <button id="btn-play" class="btn" type="button">Play</button>
@@ -51,17 +51,30 @@
         <header class="topbar game-top">
           <div id="hud-level">LEVEL 1</div>
           <div id="hud-time" class="timer"><span class="clock"></span><span id="hud-time-text">0:45</span></div>
-          <div class="lang-row">
-            <button class="lang-btn active" data-lang="en" type="button">EN</button>
-            <button class="lang-btn" data-lang="ru" type="button">RU</button>
+          <div class="hud-right">
+            <div id="hud-coins" class="coins"><span class="coin-ic"></span><span class="coin-count">0</span></div>
+            <div class="lang-row">
+              <button class="lang-btn active" data-lang="en" type="button">EN</button>
+              <button class="lang-btn" data-lang="ru" type="button">RU</button>
+            </div>
           </div>
         </header>
         <div id="goals" class="goals"></div>
-        <div class="stage"><canvas id="view"></canvas></div>
+        <div class="stage">
+          <canvas id="view"></canvas>
+          <div id="bomb-hint" class="bomb-hint hidden">Tap the pile to throw the bomb</div>
+        </div>
         <div class="tray-wrap">
           <div id="tray" class="tray"></div>
         </div>
         <div class="boosters">
+          <button id="btn-bomb" class="booster" type="button">
+            <span class="booster-ic bomb-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="14" r="7" fill="currentColor"/><path d="M14 8l3-4M17 4c1.2.4 2 1.6 2 3" fill="none" stroke="#ffe566" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span id="lbl-bomb">Bomb</span>
+            <span class="cost"><span class="coin-ic tiny"></span><span id="bomb-cost">30</span></span>
+          </button>
           <button id="btn-shuffle" class="booster" type="button">
             <span class="booster-ic" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 7h4l2 3h8M4 17h4l2-3h8M16 4l4 3-4 3M16 14l4 3-4 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -104,6 +117,8 @@
         <p id="ad-count">3</p>
       </div>
     </div>
+
+    <div id="toast" class="toast hidden"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
     <script src="js/config.js"></script>

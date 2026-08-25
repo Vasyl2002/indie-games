@@ -57,5 +57,14 @@
     this.beep(180, 0.22, "triangle", 0.05);
   };
 
+  MatchAudio.prototype.coin = function () {
+    this.beep(880, 0.08, "sine", 0.05);
+    this.beep(1180, 0.1, "triangle", 0.04);
+  };
+  MatchAudio.prototype.boom = function () {
+    this.beep(90, 0.28, "sawtooth", 0.08);
+    this.beep(240, 0.14, "square", 0.05);
+  };
+
   global.MatchAudio = MatchAudio;
 })(typeof window !== "undefined" ? window : global);

@@ -53,17 +53,43 @@
     });
   }
 
+  var toonRamp = null;
+  function getToonRamp() {
+    if (toonRamp) {
+      return toonRamp;
+    }
+    var c = document.createElement("canvas");
+    c.width = 4;
+    c.height = 1;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#4a4a4a";
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillStyle = "#8a8a8a";
+    ctx.fillRect(1, 0, 1, 1);
+    ctx.fillStyle = "#c8c8c8";
+    ctx.fillRect(2, 0, 1, 1);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(3, 0, 1, 1);
+    toonRamp = new THREE.CanvasTexture(c);
+    toonRamp.minFilter = THREE.NearestFilter;
+    toonRamp.magFilter = THREE.NearestFilter;
+    return toonRamp;
+  }
+
+  function outlineMat() {
+    if (!mats._outline) {
+      mats._outline = new THREE.MeshBasicMaterial({ color: 0x1a1030, side: THREE.BackSide });
+    }
+    return mats._outline;
+  }
+
   function mat(key, color, extra) {
     extra = extra || {};
-    var id = key + "_" + color + "_" + (extra.roughness || 0) + "_" + (extra.metalness || 0) + (extra.vertexColors ? "v" : "");
+    var id = "toon_" + key + "_" + color;
     if (!mats[id]) {
-      mats[id] = new THREE.MeshStandardMaterial({
+      mats[id] = new THREE.MeshToonMaterial({
         color: color,
-        roughness: extra.roughness != null ? extra.roughness : 0.28,
-        metalness: extra.metalness != null ? extra.metalness : 0.08,
-        envMap: getEnvMap(),
-        envMapIntensity: extra.envMapIntensity != null ? extra.envMapIntensity : 0.85,
-        vertexColors: !!extra.vertexColors,
+        gradientMap: getToonRamp(),
         emissive: extra.emissive || 0x000000,
         emissiveIntensity: extra.emissiveIntensity || 0,
       });
@@ -77,6 +103,10 @@
     if (sx) {
       mesh.scale.set(sx, sy == null ? sx : sy, sz == null ? sx : sz);
     }
+    var outline = new THREE.Mesh(geometry, outlineMat());
+    outline.scale.setScalar(1.12);
+    outline.userData.outline = true;
+    mesh.add(outline);
     parent.add(mesh);
     return mesh;
   }
@@ -93,10 +123,10 @@
     add(g, sph(), body, 0, -0.02, 0.04, 0.92, 0.7, 1.05);
     add(g, sph(), body, 0.28, 0.26, 0.16, 0.52);
     add(g, cyl("beak", 0.11, 0.05, 0.34, 16), mat("beak", "#ff8a3c", { roughness: 0.4 }), 0.52, 0.22, 0.16).rotation.z = -Math.PI / 2;
-    add(g, sph(), mat("eye", "#fff", { roughness: 0.2 }), 0.4, 0.34, 0.3, 0.12);
-    add(g, sph(), mat("eye2", "#fff", { roughness: 0.2 }), 0.4, 0.34, 0.04, 0.12);
-    add(g, sph(), mat("pupil", "#2b2118", { roughness: 0.4 }), 0.45, 0.35, 0.33, 0.05);
-    add(g, sph(), mat("pupil2", "#2b2118", { roughness: 0.4 }), 0.45, 0.35, 0.07, 0.05);
+    add(g, sph(), mat("eye", "#fff"), 0.4, 0.36, 0.3, 0.16);
+    add(g, sph(), mat("eye2", "#fff"), 0.4, 0.36, 0.04, 0.16);
+    add(g, sph(), mat("pupil", "#2b2118"), 0.46, 0.37, 0.34, 0.07);
+    add(g, sph(), mat("pupil2", "#2b2118"), 0.46, 0.37, 0.08, 0.07);
     add(g, sph(), body, -0.02, 0.02, 0.42, 0.42, 0.18, 0.28);
     return g;
   }
@@ -227,8 +257,10 @@
     earR.rotation.z = -0.35;
     add(g, sph(), mat("in", "#ffb4c8", { roughness: 0.4 }), -0.26, 0.4, 0.04, 0.12, 0.1, 0.08);
     add(g, sph(), mat("in2", "#ffb4c8", { roughness: 0.4 }), 0.26, 0.4, 0.04, 0.12, 0.1, 0.08);
-    add(g, sph(), mat("ceye", "#2b2118", { roughness: 0.3 }), -0.16, 0.08, 0.38, 0.12, 0.16, 0.08);
-    add(g, sph(), mat("ceye2", "#2b2118", { roughness: 0.3 }), 0.16, 0.08, 0.38, 0.12, 0.16, 0.08);
+    add(g, sph(), mat("ceye", "#2b2118"), -0.16, 0.1, 0.4, 0.16, 0.2, 0.1);
+    add(g, sph(), mat("ceye2", "#2b2118"), 0.16, 0.1, 0.4, 0.16, 0.2, 0.1);
+    add(g, sph(), mat("shinee", "#fff"), -0.14, 0.16, 0.44, 0.06);
+    add(g, sph(), mat("shinee2", "#fff"), 0.18, 0.16, 0.44, 0.06);
     add(g, sph(), mat("cnose", "#ff6b8a", { roughness: 0.35 }), 0, -0.02, 0.44, 0.1);
     add(g, sph(), mat("muzzle", "#ffe0c2", { roughness: 0.4 }), 0, -0.12, 0.36, 0.32, 0.18, 0.22);
     return g;
@@ -411,8 +443,18 @@
     });
   }
 
+  function createBomb() {
+    var g = new THREE.Group();
+    add(g, sph(), mat("bomb", "#2b2438"), 0, 0, 0, 0.7);
+    add(g, cyl("fuse", 0.05, 0.05, 0.28, 10), mat("fuse", "#f4d29c"), 0, 0.42, 0);
+    add(g, sph(), mat("spark", "#ffe566", { emissive: 0xff9a2e, emissiveIntensity: 0.8 }), 0, 0.56, 0, 0.16);
+    add(g, sph(), mat("cap", "#5c4d3c"), 0, 0.28, 0, 0.22, 0.1, 0.22);
+    return g;
+  }
+
   global.MatchItems = {
     createItem: createItem,
+    createBomb: createBomb,
     FACTORIES: FACTORIES,
     iconUrl: iconUrl,
     warmIcons: warmIcons,
