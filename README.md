@@ -1,4 +1,20 @@
-# Magic Sort
+# indie-games
+
+## Pair Pop 3D
+
+3D match game in `match-3d/`. Open `match-3d/index.html`, or from the repo root:
+
+```bash
+python3 -m http.server 8080
+```
+
+Then go to `http://localhost:8080/match-3d/`.
+
+Tap toys in the pile, pair two identical ones in a 6-slot tray, and clear 20 levels. Timer goes from 45 seconds on easy levels up to 3:00. When time runs out you can watch a placeholder ad for +1:00 (real SDK can be plugged in later).
+
+Needs a network connection once to load Three.js from the CDN.
+
+## Magic Sort
 
 Bright HTML5 color-sorting puzzle for CrazyGames.
 
