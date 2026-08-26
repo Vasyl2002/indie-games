@@ -78,6 +78,7 @@
     busy: false,
     adUsed: false,
     paused: false,
+    adOpen: false,
     coins: 0,
     aimingBomb: false,
     bombFlight: null,
@@ -160,6 +161,11 @@
     });
     if (name === "game") {
       resize();
+      if (!state.overlay && !state.adOpen) {
+        CrazySDK.gameplayStart();
+      }
+    } else {
+      CrazySDK.gameplayStop();
     }
   }
 
@@ -402,6 +408,7 @@
     state.busy = false;
     state.adUsed = false;
     state.paused = false;
+    state.adOpen = false;
     setBombAim(false);
     clearBursts();
     hideOverlay();
@@ -469,7 +476,7 @@
   }
 
   function winLevel() {
-    if (state.overlay) {
+    if (state.overlay || state.adOpen) {
       return;
     }
     if (state.levelIndex + 2 > state.unlocked) {
@@ -481,21 +488,46 @@
     updateCoinsHud();
     audio.win();
     audio.coin();
-    showOverlay("win", t("win"), t("winDetail"), false);
+    CrazySDK.happytime();
+    CrazySDK.gameplayStop();
+    withInterstitial(function () {
+      showOverlay("win", t("win"), t("winDetail"), false);
+    });
   }
 
   function loseLevel(kind) {
-    if (state.overlay) {
+    if (state.overlay || state.adOpen) {
       return;
     }
     audio.lose();
+    CrazySDK.gameplayStop();
     var extra = kind === "time" && !state.adUsed;
-    showOverlay(
-      "lose",
-      kind === "time" ? t("loseTime") : t("loseTray"),
-      kind === "time" ? t("loseTimeDetail") : t("loseTrayDetail"),
-      extra
-    );
+    withInterstitial(function () {
+      showOverlay(
+        "lose",
+        kind === "time" ? t("loseTime") : t("loseTray"),
+        kind === "time" ? t("loseTimeDetail") : t("loseTrayDetail"),
+        extra
+      );
+    });
+  }
+
+  function withInterstitial(then) {
+    if (state.adOpen) {
+      return;
+    }
+    state.adOpen = true;
+    state.paused = true;
+    CrazySDK.showInterstitial(function () {
+      state.adOpen = false;
+      then();
+    });
+  }
+
+  function retryLevel() {
+    withInterstitial(function () {
+      startLevel(state.levelIndex);
+    });
   }
 
   function showOverlay(kind, title, detail, showAd) {
@@ -515,7 +547,7 @@
   }
 
   function pickFromPile(mesh) {
-    if (state.busy || state.overlay || state.paused) {
+    if (state.busy || state.overlay || state.paused || state.adOpen) {
       return;
     }
     if (!canPlace()) {
@@ -567,7 +599,7 @@
 
   function onPointer(event) {
     audio.unlockAndPlay();
-    if (state.screen !== "game" || state.overlay || state.busy) {
+    if (state.screen !== "game" || state.overlay || state.busy || state.paused || state.adOpen) {
       return;
     }
     var rect = canvas.getBoundingClientRect();
@@ -687,7 +719,7 @@
   }
 
   function shufflePile() {
-    if (state.overlay || state.busy) {
+    if (state.overlay || state.busy || state.adOpen) {
       return;
     }
     var count = state.pile.length;
@@ -707,7 +739,9 @@
     }
     state.adUsed = true;
     hideOverlay();
+    state.paused = false;
     updateTimer();
+    CrazySDK.gameplayStart();
   }
 
   function frame() {
@@ -813,10 +847,9 @@
     document.getElementById("btn-menu").addEventListener("click", function () {
       hideOverlay();
       showScreen("menu");
+      CrazySDK.gameplayStop();
     });
-    document.getElementById("btn-restart").addEventListener("click", function () {
-      startLevel(state.levelIndex);
-    });
+    document.getElementById("btn-restart").addEventListener("click", retryLevel);
     document.getElementById("btn-shuffle").addEventListener("click", shufflePile);
     document.getElementById("btn-bomb").addEventListener("click", function () {
       audio.unlockAndPlay();
@@ -836,15 +869,17 @@
     document.getElementById("btn-next").addEventListener("click", function () {
       startLevel(Math.min(MATCH_LEVELS.length - 1, state.levelIndex + 1));
     });
-    document.getElementById("btn-retry").addEventListener("click", function () {
-      startLevel(state.levelIndex);
-    });
+    document.getElementById("btn-retry").addEventListener("click", retryLevel);
     document.getElementById("btn-overlay-menu").addEventListener("click", function () {
       hideOverlay();
       renderLevelGrid();
       showScreen("levels");
+      CrazySDK.gameplayStop();
     });
     document.getElementById("btn-ad").addEventListener("click", function () {
+      if (state.adOpen) {
+        return;
+      }
       ads.showRewarded(function (ok) {
         if (ok) {
           grantExtraMinute();
@@ -888,5 +923,19 @@
   applyLang();
   updateCoinsHud();
   renderLevelGrid();
+  CrazySDK.init({
+    onPause: function () {
+      state.paused = true;
+      audio.setSuspended(true);
+      CrazySDK.gameplayStop();
+    },
+    onResume: function () {
+      audio.setSuspended(false);
+      if (state.screen === "game" && !state.overlay && !state.adOpen) {
+        state.paused = false;
+        CrazySDK.gameplayStart();
+      }
+    },
+  });
   requestAnimationFrame(frame);
 })();

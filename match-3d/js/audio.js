@@ -205,6 +205,34 @@
     this.applyMusicGain();
   };
 
+  MatchAudio.prototype.setSuspended = function (on) {
+    this.enabled = !on;
+    if (!this.ctx) {
+      return;
+    }
+    if (on) {
+      this.stopMusic();
+      if (this.ctx.state === "running" && this.ctx.suspend) {
+        try {
+          this.ctx.suspend();
+        } catch (err) {
+          /* ignore */
+        }
+      }
+      return;
+    }
+    if (this.ctx.resume) {
+      try {
+        this.ctx.resume();
+      } catch (err2) {
+        /* ignore */
+      }
+    }
+    if (!this.muted) {
+      this.unlockAndPlay();
+    }
+  };
+
   MatchAudio.prototype.beep = function (freq, dur, type, gain) {
     if (!this.enabled) {
       return;
