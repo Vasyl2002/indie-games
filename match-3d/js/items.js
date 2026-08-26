@@ -365,15 +365,46 @@
 
   function makeStone() {
     var g = group("stone");
-    var mid = mat("rock", "#8b909c");
-    var dark = mat("rock2", "#6a707c");
-    var lite = mat("rock3", "#c2c6ce");
-    add(g, sph(), mid, 0, 0.02, 0, 0.82, 0.64, 0.74);
-    add(g, sph(), dark, 0.2, -0.06, 0.1, 0.44, 0.36, 0.4);
-    add(g, sph(), dark, -0.18, 0.02, -0.12, 0.42, 0.34, 0.4);
-    add(g, sph(), lite, -0.05, 0.18, 0.14, 0.3, 0.22, 0.26);
-    add(g, sph(), mid, 0.1, -0.14, -0.16, 0.34, 0.24, 0.3);
-    add(g, sph(), dark, 0.02, 0.1, -0.2, 0.26, 0.22, 0.24);
+    var rock = mat("rock", "#c4b08a");
+    var dark = mat("rock2", "#6d5c43");
+    var moss = mat("moss", "#6f8a45");
+    add(
+      g,
+      geo("ico", function () {
+        return new THREE.IcosahedronGeometry(0.46, 0);
+      }),
+      rock,
+      0,
+      0.02,
+      0,
+      1.08,
+      0.86,
+      1
+    );
+    add(
+      g,
+      geo("ico2", function () {
+        return new THREE.IcosahedronGeometry(0.24, 0);
+      }),
+      dark,
+      0.2,
+      0.06,
+      0.12,
+      1,
+      0.8,
+      0.9
+    );
+    add(
+      g,
+      geo("ico3", function () {
+        return new THREE.IcosahedronGeometry(0.18, 0);
+      }),
+      moss,
+      -0.16,
+      0.14,
+      0.08
+    );
+    add(g, sph(), mat("pebble", "#a89470"), -0.08, -0.12, 0.16, 0.22, 0.16, 0.2);
     return g;
   }
 

@@ -314,8 +314,8 @@
       mesh.rotation.set(Math.random() * 0.85, Math.random() * Math.PI * 2, Math.random() * 0.85);
       var scale = 0.95 + Math.random() * 0.12;
       if (type === MatchConfig.BLOCKER_TYPE) {
-        scale *= 1.2;
-        y = Math.min(2.45, y + 0.55 + Math.random() * 0.2);
+        scale *= 1.28;
+        y = Math.min(2.6, y + 0.7 + Math.random() * 0.25);
       }
       mesh.scale.setScalar(scale);
       pileGroup.add(mesh);
