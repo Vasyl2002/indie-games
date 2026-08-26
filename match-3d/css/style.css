@@ -298,16 +298,16 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  height: 24px;
-  line-height: 24px;
+  min-width: 36px;
+  height: 26px;
+  line-height: 26px;
   margin: 0;
   background: #ff9a2e;
   color: #1c1f27;
   border-radius: 999px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  padding: 0 8px;
+  padding: 0 9px;
   box-shadow: 0 2px 0 #c47a18;
   z-index: 1;
 }
