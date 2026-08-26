@@ -19,16 +19,10 @@ vm.runInNewContext(
 );
 
 assert.ok(scope.CrazySDK);
-assert.strictEqual(scope.CrazySDK.isReady(), false);
-
-var skipped = false;
-scope.CrazySDK.showInterstitial(function () {
-  skipped = true;
-});
-assert.strictEqual(skipped, true);
+assert.strictEqual(typeof scope.CrazySDK.showInterstitial, "undefined");
+assert.strictEqual(typeof scope.CrazySDK.showRewarded, "undefined");
 
 var started = 0;
-var ads = [];
 scope.CrazyGames = {
   SDK: {
     init: function () {
@@ -43,13 +37,6 @@ scope.CrazyGames = {
       },
       happytime: function () {},
     },
-    ad: {
-      requestAd: function (type, callbacks) {
-        ads.push(type);
-        callbacks.adStarted();
-        callbacks.adFinished();
-      },
-    },
   },
 };
 
@@ -57,23 +44,18 @@ return scope.CrazySDK.init().then(function () {
   assert.strictEqual(scope.CrazySDK.isReady(), true);
   scope.CrazySDK.gameplayStart();
   assert.strictEqual(started, 1);
-  var mid = false;
-  scope.CrazySDK.showInterstitial(function () {
-    mid = true;
-  });
-  assert.strictEqual(ads[0], "midgame");
-  assert.strictEqual(mid, true);
-  var reward = false;
-  scope.CrazySDK.showRewarded(function (ok) {
-    reward = ok;
-  });
-  assert.strictEqual(ads[1], "rewarded");
-  assert.strictEqual(reward, true);
   var html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   var game = fs.readFileSync(path.join(__dirname, "..", "js/game.js"), "utf8");
+  var wrapper = fs.readFileSync(path.join(__dirname, "..", "js/crazygames.js"), "utf8");
   assert.ok(html.indexOf("crazygames-sdk-v2.js") !== -1);
-  assert.ok(game.indexOf("showInterstitial") !== -1);
-  assert.ok(game.indexOf("retryLevel") !== -1);
-  assert.ok(game.indexOf("happytime") !== -1);
+  assert.ok(html.indexOf("fonts.googleapis.com") === -1);
+  assert.ok(html.indexOf("terms-and-conditions") !== -1);
+  assert.ok(html.indexOf("privacy-policy") !== -1);
+  assert.ok(html.indexOf("ads.js") === -1);
+  assert.ok(html.indexOf("Watch ad") === -1);
+  assert.ok(game.indexOf("requestAd") === -1);
+  assert.ok(game.indexOf("showInterstitial") === -1);
+  assert.ok(wrapper.indexOf("requestAd") === -1);
+  assert.ok(game.indexOf("gameplayStart") !== -1);
   console.log("match-3d crazygames tests passed");
 });

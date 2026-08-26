@@ -10,11 +10,11 @@ python3 -m http.server 8080
 
 Then go to `http://localhost:8080/match-3d/`.
 
-CrazyGames package: `pair_pop_crazygames.zip` (extract — `index.html` is at the archive root).
+CrazyGames package: `pair_pop_crazygames.zip` (extract — `index.html` is at the archive root). Built for **Basic Launch**: SDK gameplay events only, no in-game ads.
 
 https://github.com/Vasyl2002/indie-games/raw/cursor/magic-sort-game-de27/pair_pop_crazygames.zip
 
-Tap toys in the pile, pair two identical ones in a 6-slot tray, and clear 20 levels. Gray stones fill tray slots and do not match. After Retry and after a completed level the CrazyGames midgame ad runs. Extra minute uses a rewarded video.
+Tap toys in the pile, pair two identical ones in a 6-slot tray, and clear 20 levels. Gray stones fill tray slots and do not match.
 
 ## Magic Sort
 

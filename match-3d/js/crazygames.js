@@ -2,7 +2,6 @@
   "use strict";
 
   var ready = false;
-  var showingAd = false;
   var hooks = {
     onPause: function () {},
     onResume: function () {},
@@ -15,11 +14,6 @@
   function gameModule() {
     var instance = sdk();
     return instance && instance.game ? instance.game : null;
-  }
-
-  function adModule() {
-    var instance = sdk();
-    return instance && instance.ad ? instance.ad : null;
   }
 
   function safeCall(fn, args) {
@@ -90,71 +84,11 @@
     }
   }
 
-  function requestAd(kind, onDone, reward) {
-    var done = typeof onDone === "function" ? onDone : function () {};
-    var finished = false;
-
-    function finish(ok) {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      showingAd = false;
-      hooks.onResume();
-      done(!!ok);
-    }
-
-    if (showingAd) {
-      done(false);
-      return;
-    }
-
-    var ads = adModule();
-    if (!ads || typeof ads.requestAd !== "function") {
-      done(!reward);
-      return;
-    }
-
-    showingAd = true;
-    gameplayStop();
-    hooks.onPause();
-
-    try {
-      ads.requestAd(kind, {
-        adStarted: function () {
-          hooks.onPause();
-        },
-        adFinished: function () {
-          finish(true);
-        },
-        adError: function () {
-          finish(false);
-        },
-      });
-    } catch (err) {
-      finish(false);
-    }
-  }
-
-  function showInterstitial(onDone) {
-    requestAd("midgame", function () {
-      if (typeof onDone === "function") {
-        onDone();
-      }
-    }, false);
-  }
-
-  function showRewarded(onDone) {
-    requestAd("rewarded", onDone, true);
-  }
-
   global.CrazySDK = {
     init: init,
     gameplayStart: gameplayStart,
     gameplayStop: gameplayStop,
     happytime: happytime,
-    showInterstitial: showInterstitial,
-    showRewarded: showRewarded,
     isReady: function () {
       return ready;
     },

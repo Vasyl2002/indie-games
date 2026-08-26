@@ -5,7 +5,6 @@
   var MATCH_SIZE = MatchConfig.MATCH_SIZE;
   var canvas = document.getElementById("view");
   var audio = new MatchAudio();
-  var ads = new GameAds();
 
   var i18n = {
     lang: "en",
@@ -22,12 +21,13 @@
       next: "Next",
       retry: "Retry",
       toLevels: "Levels",
-      adBtn: "Watch ad +1:00",
+      terms: "Terms",
+      privacy: "Privacy",
       win: "Level complete!",
       loseTime: "Time's up!",
       loseTray: "Tray is full!",
       winDetail: "Nice pairing! +30 coins",
-      loseTimeDetail: "Watch an ad for one extra minute, or retry.",
+      loseTimeDetail: "Try the level again, or pick another from the list.",
       loseTrayDetail: "Match two identical toys before all 6 slots fill. Stones stay in the tray and do not pair.",
       level: "LEVEL",
       bomb: "Bomb",
@@ -47,12 +47,13 @@
       next: "Дальше",
       retry: "Ещё раз",
       toLevels: "Уровни",
-      adBtn: "Реклама +1:00",
+      terms: "Правила",
+      privacy: "Конфиденциальность",
       win: "Уровень пройден!",
       loseTime: "Время вышло!",
       loseTray: "Лоток заполнен!",
       winDetail: "Отличные пары! +30 монет",
-      loseTimeDetail: "Посмотри рекламу и получи ещё минуту — или начни заново.",
+      loseTimeDetail: "Попробуй уровень ещё раз или выбери другой из списка.",
       loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 6 слотов. Камни остаются в лотке и не складываются в пару.",
       level: "УРОВЕНЬ",
       bomb: "Бомба",
@@ -76,9 +77,7 @@
     lastTick: 0,
     overlay: null,
     busy: false,
-    adUsed: false,
     paused: false,
-    adOpen: false,
     coins: 0,
     aimingBomb: false,
     bombFlight: null,
@@ -161,7 +160,7 @@
     });
     if (name === "game") {
       resize();
-      if (!state.overlay && !state.adOpen) {
+      if (!state.overlay) {
         CrazySDK.gameplayStart();
       }
     } else {
@@ -186,7 +185,8 @@
     document.getElementById("btn-next").textContent = t("next");
     document.getElementById("btn-retry").textContent = t("retry");
     document.getElementById("btn-overlay-menu").textContent = t("toLevels");
-    document.getElementById("btn-ad").textContent = t("adBtn");
+    document.getElementById("link-terms").textContent = t("terms");
+    document.getElementById("link-privacy").textContent = t("privacy");
     document.querySelectorAll(".lang-btn").forEach(function (btn) {
       if (btn.hasAttribute("data-music")) {
         return;
@@ -406,9 +406,7 @@
     state.timeLeft = level.time;
     state.overlay = null;
     state.busy = false;
-    state.adUsed = false;
     state.paused = false;
-    state.adOpen = false;
     setBombAim(false);
     clearBursts();
     hideOverlay();
@@ -476,7 +474,7 @@
   }
 
   function winLevel() {
-    if (state.overlay || state.adOpen) {
+    if (state.overlay) {
       return;
     }
     if (state.levelIndex + 2 > state.unlocked) {
@@ -490,53 +488,32 @@
     audio.coin();
     CrazySDK.happytime();
     CrazySDK.gameplayStop();
-    withInterstitial(function () {
-      showOverlay("win", t("win"), t("winDetail"), false);
-    });
+    showOverlay("win", t("win"), t("winDetail"));
   }
 
   function loseLevel(kind) {
-    if (state.overlay || state.adOpen) {
+    if (state.overlay) {
       return;
     }
     audio.lose();
     CrazySDK.gameplayStop();
-    var extra = kind === "time" && !state.adUsed;
-    withInterstitial(function () {
-      showOverlay(
-        "lose",
-        kind === "time" ? t("loseTime") : t("loseTray"),
-        kind === "time" ? t("loseTimeDetail") : t("loseTrayDetail"),
-        extra
-      );
-    });
-  }
-
-  function withInterstitial(then) {
-    if (state.adOpen) {
-      return;
-    }
-    state.adOpen = true;
-    state.paused = true;
-    CrazySDK.showInterstitial(function () {
-      state.adOpen = false;
-      then();
-    });
+    showOverlay(
+      "lose",
+      kind === "time" ? t("loseTime") : t("loseTray"),
+      kind === "time" ? t("loseTimeDetail") : t("loseTrayDetail")
+    );
   }
 
   function retryLevel() {
-    withInterstitial(function () {
-      startLevel(state.levelIndex);
-    });
+    startLevel(state.levelIndex);
   }
 
-  function showOverlay(kind, title, detail, showAd) {
+  function showOverlay(kind, title, detail) {
     state.overlay = kind;
     state.paused = true;
     document.getElementById("overlay-title").textContent = title;
     document.getElementById("overlay-detail").textContent = detail;
     document.getElementById("btn-next").classList.toggle("hidden", kind !== "win" || state.levelIndex >= MATCH_LEVELS.length - 1);
-    document.getElementById("btn-ad").classList.toggle("hidden", !showAd);
     document.getElementById("overlay").classList.remove("hidden");
   }
 
@@ -547,7 +524,7 @@
   }
 
   function pickFromPile(mesh) {
-    if (state.busy || state.overlay || state.paused || state.adOpen) {
+    if (state.busy || state.overlay || state.paused) {
       return;
     }
     if (!canPlace()) {
@@ -599,7 +576,7 @@
 
   function onPointer(event) {
     audio.unlockAndPlay();
-    if (state.screen !== "game" || state.overlay || state.busy || state.paused || state.adOpen) {
+    if (state.screen !== "game" || state.overlay || state.busy || state.paused) {
       return;
     }
     var rect = canvas.getBoundingClientRect();
@@ -719,7 +696,7 @@
   }
 
   function shufflePile() {
-    if (state.overlay || state.busy || state.adOpen) {
+    if (state.overlay || state.busy) {
       return;
     }
     var count = state.pile.length;
@@ -730,18 +707,6 @@
       mesh.position.set(Math.cos(angle) * r, Math.random() * 0.7, Math.sin(angle) * r * 0.88);
       mesh.rotation.y = Math.random() * Math.PI * 2;
     });
-  }
-
-  function grantExtraMinute() {
-    state.timeLeft += 60;
-    if (state.timeLeft > MatchConfig.MAX_TIME) {
-      state.timeLeft = MatchConfig.MAX_TIME;
-    }
-    state.adUsed = true;
-    hideOverlay();
-    state.paused = false;
-    updateTimer();
-    CrazySDK.gameplayStart();
   }
 
   function frame() {
@@ -876,16 +841,6 @@
       showScreen("levels");
       CrazySDK.gameplayStop();
     });
-    document.getElementById("btn-ad").addEventListener("click", function () {
-      if (state.adOpen) {
-        return;
-      }
-      ads.showRewarded(function (ok) {
-        if (ok) {
-          grantExtraMinute();
-        }
-      });
-    });
     document.querySelectorAll(".lang-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         if (btn.hasAttribute("data-music")) {
@@ -931,7 +886,7 @@
     },
     onResume: function () {
       audio.setSuspended(false);
-      if (state.screen === "game" && !state.overlay && !state.adOpen) {
+      if (state.screen === "game" && !state.overlay) {
         state.paused = false;
         CrazySDK.gameplayStart();
       }

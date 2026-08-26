@@ -1,6 +1,6 @@
 # Pair Pop 3D
 
-Browser 3D match game for CrazyGames: tap toys in the pile, pair two identical ones in a 6-slot tray, and clear the goals before the timer ends.
+Browser 3D match game for CrazyGames Basic Launch: tap toys in the pile, pair two identical ones in a 6-slot tray, and clear the goals before the timer ends.
 
 ## Play
 
@@ -25,16 +25,11 @@ promo/
 
 https://github.com/Vasyl2002/indie-games/raw/cursor/magic-sort-game-de27/pair_pop_crazygames.zip
 
-## CrazyGames SDK v2
+## CrazyGames Basic Launch
 
-- Script: `https://sdk.crazygames.com/crazygames-sdk-v2.js`
-- `CrazyGames.SDK.init()` on page start
-- `gameplayStart()` when a level begins
-- `gameplayStop()` on pause, overlay, menu, or ads
-- Midgame ads: `ad.requestAd('midgame')` after Retry and after a completed level
-- Rewarded ads: `ad.requestAd('rewarded')` for +1:00 when time runs out
-
-Outside CrazyGames the game still runs; midgame ads are skipped.
+- SDK v2 for `init`, `gameplayStart`, and `gameplayStop` only
+- No in-game ads (Basic Launch does not allow them)
+- Menu links to CrazyGames Terms and Privacy
 
 ## First version
 

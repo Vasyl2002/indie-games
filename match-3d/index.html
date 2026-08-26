@@ -10,10 +10,7 @@
     <link rel="icon" href="promo/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/png" sizes="192x192" href="promo/icon-192.png" />
     <link rel="apple-touch-icon" href="promo/icon-180.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css?v=29" />
+    <link rel="stylesheet" href="css/style.css?v=30" />
     <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
   </head>
   <body>
@@ -40,6 +37,11 @@
           <button id="btn-play" class="btn" type="button">Play</button>
           <button id="btn-levels" class="btn secondary" type="button">Levels</button>
         </div>
+        <p class="legal">
+          <a id="link-terms" href="https://www.crazygames.com/terms-and-conditions" target="_blank" rel="noopener">Terms</a>
+          ·
+          <a id="link-privacy" href="https://www.crazygames.com/privacy-policy" target="_blank" rel="noopener">Privacy</a>
+        </p>
       </section>
 
       <section id="screen-levels" class="screen hidden">
@@ -119,30 +121,20 @@
         <p id="overlay-detail"></p>
         <div class="overlay-actions">
           <button id="btn-next" class="btn" type="button">Next</button>
-          <button id="btn-ad" class="btn secondary hidden" type="button">Watch ad +1:00</button>
           <button id="btn-retry" class="btn secondary" type="button">Retry</button>
           <button id="btn-overlay-menu" class="chip" type="button">Levels</button>
         </div>
       </div>
     </div>
 
-    <div id="ad-overlay" class="hidden">
-      <div class="modal">
-        <h3>Rewarded ad</h3>
-        <p>CrazyGames rewarded video, or a short placeholder outside the portal.</p>
-        <p id="ad-count">3</p>
-      </div>
-    </div>
-
     <div id="toast" class="toast hidden"></div>
 
     <script src="js/three.min.js"></script>
-    <script src="js/config.js?v=29"></script>
-    <script src="js/levels.js?v=29"></script>
-    <script src="js/items.js?v=29"></script>
-    <script src="js/crazygames.js?v=29"></script>
-    <script src="js/ads.js?v=29"></script>
-    <script src="js/audio.js?v=29"></script>
-    <script src="js/game.js?v=29"></script>
+    <script src="js/config.js?v=30"></script>
+    <script src="js/levels.js?v=30"></script>
+    <script src="js/items.js?v=30"></script>
+    <script src="js/crazygames.js?v=30"></script>
+    <script src="js/audio.js?v=30"></script>
+    <script src="js/game.js?v=30"></script>
   </body>
 </html>
