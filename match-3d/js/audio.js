@@ -12,6 +12,7 @@
     this.musicOn = false;
     this.musicTimer = 0;
     this.musicGain = null;
+    this.sfxGain = null;
   }
 
   MatchAudio.prototype.ensure = function () {
@@ -22,25 +23,51 @@
       }
       this.ctx = new C();
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.muted ? 0 : 0.085;
+      this.sfxGain = this.ctx.createGain();
+      this.musicGain.gain.value = this.muted ? 0 : 0.32;
+      this.sfxGain.gain.value = 0.7;
       this.musicGain.connect(this.ctx.destination);
+      this.sfxGain.connect(this.ctx.destination);
     }
     if (this.ctx.state === "suspended") {
       this.ctx.resume();
     }
-    if (this.ctx && !this.musicOn && !this.muted) {
-      this.startMusic();
-    }
     return this.ctx;
+  };
+
+  MatchAudio.prototype.unlockAndPlay = function () {
+    var self = this;
+    var ctx = this.ensure();
+    if (!ctx) {
+      return;
+    }
+    var start = function () {
+      if (!self.muted) {
+        self.startMusic();
+      }
+    };
+    if (ctx.state === "suspended") {
+      ctx.resume().then(start).catch(start);
+    } else {
+      start();
+    }
+  };
+
+  MatchAudio.prototype.applyMusicGain = function () {
+    if (!this.musicGain || !this.ctx) {
+      return;
+    }
+    this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+    this.musicGain.gain.setValueAtTime(this.muted ? 0 : 0.22, this.ctx.currentTime);
   };
 
   MatchAudio.prototype.setMuted = function (muted) {
     this.muted = !!muted;
-    if (this.musicGain) {
-      this.musicGain.gain.setTargetAtTime(this.muted ? 0.0001 : 0.085, this.ctx.currentTime, 0.05);
-    }
-    if (!this.muted) {
-      this.ensure();
+    this.applyMusicGain();
+    if (this.muted) {
+      this.stopMusic();
+    } else {
+      this.unlockAndPlay();
     }
   };
 
@@ -49,52 +76,69 @@
     return this.muted;
   };
 
+  MatchAudio.prototype.stopMusic = function () {
+    this.musicOn = false;
+    if (this.musicTimer) {
+      global.clearTimeout(this.musicTimer);
+      this.musicTimer = 0;
+    }
+  };
+
   MatchAudio.prototype.beep = function (freq, dur, type, gain) {
-    if (!this.enabled || this.muted) {
+    if (!this.enabled) {
       return;
     }
     var ctx = this.ensure();
-    if (!ctx) {
+    if (!ctx || !this.sfxGain) {
       return;
     }
+    var now = ctx.currentTime;
     var osc = ctx.createOscillator();
     var amp = ctx.createGain();
     osc.type = type || "sine";
     osc.frequency.value = freq;
-    amp.gain.setValueAtTime(0.0001, ctx.currentTime);
-    amp.gain.exponentialRampToValueAtTime(gain || 0.06, ctx.currentTime + 0.02);
-    amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    amp.gain.setValueAtTime(0, now);
+    amp.gain.linearRampToValueAtTime(gain || 0.06, now + 0.02);
+    amp.gain.linearRampToValueAtTime(0, now + dur);
     osc.connect(amp);
-    amp.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + dur + 0.02);
+    amp.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + dur + 0.03);
   };
 
   MatchAudio.prototype.tone = function (freq, start, dur, type, gain) {
     var ctx = this.ctx;
-    if (!ctx || !this.musicGain) {
+    if (!ctx || !this.musicGain || this.muted) {
       return;
     }
-    var osc = ctx.createOscillator();
-    var amp = ctx.createGain();
-    osc.type = type || "triangle";
-    osc.frequency.setValueAtTime(freq, start);
-    amp.gain.setValueAtTime(0.0001, start);
-    amp.gain.exponentialRampToValueAtTime(gain, start + 0.02);
-    amp.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.04, dur - 0.03));
-    osc.connect(amp);
-    amp.connect(this.musicGain);
-    osc.start(start);
-    osc.stop(start + dur + 0.03);
+    var t0 = Math.max(start, ctx.currentTime + 0.01);
+    var len = Math.max(0.06, dur);
+    try {
+      var osc = ctx.createOscillator();
+      var amp = ctx.createGain();
+      osc.type = type || "triangle";
+      osc.frequency.setValueAtTime(freq, t0);
+      amp.gain.setValueAtTime(0, t0);
+      amp.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+      amp.gain.linearRampToValueAtTime(0, t0 + len);
+      osc.connect(amp);
+      amp.connect(this.musicGain);
+      osc.start(t0);
+      osc.stop(t0 + len + 0.03);
+    } catch (err) {
+      return;
+    }
   };
 
   MatchAudio.prototype.startMusic = function () {
     var self = this;
-    var ctx = this.ensure();
-    if (!ctx || this.musicOn) {
+    var ctx = this.ctx;
+    if (!ctx || this.muted || this.musicOn) {
       return;
     }
     this.musicOn = true;
+    this.applyMusicGain();
+
     var bpm = 126;
     var beat = 60 / bpm;
     var loopBeats = 16;
@@ -115,28 +159,27 @@
       [9.5, 93, 0.18], [11.5, 91, 0.18], [13.75, 96, 0.22], [15.5, 88, 0.22],
     ];
 
-    function schedule(at) {
-      if (!self.musicOn) {
+    function schedule(fromTime) {
+      if (!self.musicOn || self.muted || !self.ctx) {
         return;
       }
+      var at = Math.max(fromTime, self.ctx.currentTime + 0.05);
       melody.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "triangle", 0.22);
+        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "triangle", 0.28);
       });
       bass.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.16);
+        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.2);
       });
       sparkle.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.07);
+        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.1);
       });
-      for (var i = 0; i < loopBeats; i += 1) {
-        self.tone(i % 2 === 0 ? 180 : 220, at + i * beat, 0.08, "square", i % 4 === 0 ? 0.04 : 0.02);
-      }
+      var wait = Math.max(200, (at + loopDur - self.ctx.currentTime) * 1000 - 120);
       self.musicTimer = global.setTimeout(function () {
-        schedule(Math.max(ctx.currentTime + 0.04, at + loopDur));
-      }, loopDur * 1000 - 80);
+        schedule(at + loopDur);
+      }, wait);
     }
 
-    schedule(ctx.currentTime + 0.06);
+    schedule(ctx.currentTime + 0.08);
   };
 
   MatchAudio.prototype.pick = function () {

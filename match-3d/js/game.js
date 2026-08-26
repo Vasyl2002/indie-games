@@ -542,7 +542,7 @@
   }
 
   function onPointer(event) {
-    audio.ensure();
+    audio.unlockAndPlay();
     if (state.screen !== "game" || state.overlay || state.busy) {
       return;
     }
@@ -776,7 +776,7 @@
 
   function bindUi() {
     document.getElementById("btn-play").addEventListener("click", function () {
-      audio.ensure();
+      audio.unlockAndPlay();
       startLevel(0);
     });
     document.getElementById("btn-levels").addEventListener("click", function () {
@@ -795,7 +795,7 @@
     });
     document.getElementById("btn-shuffle").addEventListener("click", shufflePile);
     document.getElementById("btn-bomb").addEventListener("click", function () {
-      audio.ensure();
+      audio.unlockAndPlay();
       if (state.overlay || state.busy) {
         return;
       }
@@ -847,7 +847,7 @@
     canvas.addEventListener("pointerdown", onPointer);
     window.addEventListener("resize", resize);
     document.body.addEventListener("pointerdown", function () {
-      audio.ensure();
+      audio.unlockAndPlay();
     });
   }
 
