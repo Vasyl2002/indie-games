@@ -363,6 +363,20 @@
     return g;
   }
 
+  function makeStone() {
+    var g = group("stone");
+    var mid = mat("rock", "#8b909c");
+    var dark = mat("rock2", "#6a707c");
+    var lite = mat("rock3", "#c2c6ce");
+    add(g, sph(), mid, 0, 0.02, 0, 0.82, 0.64, 0.74);
+    add(g, sph(), dark, 0.2, -0.06, 0.1, 0.44, 0.36, 0.4);
+    add(g, sph(), dark, -0.18, 0.02, -0.12, 0.42, 0.34, 0.4);
+    add(g, sph(), lite, -0.05, 0.18, 0.14, 0.3, 0.22, 0.26);
+    add(g, sph(), mid, 0.1, -0.14, -0.16, 0.34, 0.24, 0.3);
+    add(g, sph(), dark, 0.02, 0.1, -0.2, 0.26, 0.22, 0.24);
+    return g;
+  }
+
   var FACTORIES = {
     duck: makeDuck,
     ball: makeBall,
@@ -380,6 +394,7 @@
     fish: makeFish,
     bell: makeBell,
     cube: makeCube,
+    stone: makeStone,
   };
 
   function createItem(type) {

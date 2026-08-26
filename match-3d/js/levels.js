@@ -1,8 +1,14 @@
 (function (global) {
   "use strict";
 
+  function stonesFor(id) {
+    return 2 + 2 * Math.floor((id - 1) / 4);
+  }
+
   function level(id, time, goals, extras) {
-    return { id: id, time: time, goals: goals, extras: extras || {} };
+    extras = Object.assign({}, extras || {});
+    extras.stone = stonesFor(id);
+    return { id: id, time: time, goals: goals, extras: extras };
   }
 
   global.MATCH_LEVELS = [

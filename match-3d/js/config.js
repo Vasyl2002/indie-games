@@ -18,6 +18,7 @@
     { id: "fish", color: "#ffb703", accent: "#e63946", label: { en: "Pizza", ru: "Пицца" } },
     { id: "bell", color: "#ffe566", accent: "#b08968", label: { en: "Banana", ru: "Банан" } },
     { id: "cube", color: "#e63946", accent: "#dfe7ef", label: { en: "Soda", ru: "Газировка" } },
+    { id: "stone", color: "#8a8f99", accent: "#5c616a", label: { en: "Stone", ru: "Камень" }, blocker: true },
   ];
 
   var TYPE_MAP = {};
@@ -32,6 +33,7 @@
     WIN_COINS: 30,
     BOMB_COST: 30,
     BLAST_RADIUS: 1.95,
+    BLOCKER_TYPE: "stone",
     TYPES: TYPES,
     TYPE_MAP: TYPE_MAP,
   };

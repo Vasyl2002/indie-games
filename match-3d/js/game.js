@@ -11,7 +11,7 @@
     lang: "en",
     en: {
       tagline: "3D MATCH",
-      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out.",
+      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out. Gray stones only get in the way — pair them to drop them from the tray, you do not need to collect them.",
       play: "Play",
       levels: "Levels",
       back: "Back",
@@ -36,7 +36,7 @@
     },
     ru: {
       tagline: "3D МАТЧ",
-      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели до конца таймера.",
+      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели до конца таймера. Серые камни только мешают — два камня можно убрать из лотка, собирать их не нужно.",
       play: "Играть",
       levels: "Уровни",
       back: "Назад",
@@ -312,7 +312,11 @@
       var y = Math.min(2.1, (index % 8) * 0.14 + Math.random() * 0.22);
       mesh.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r * 0.86);
       mesh.rotation.set(Math.random() * 0.85, Math.random() * Math.PI * 2, Math.random() * 0.85);
-      mesh.scale.setScalar(0.95 + Math.random() * 0.12);
+      var scale = 0.95 + Math.random() * 0.12;
+      if (type === MatchConfig.BLOCKER_TYPE) {
+        scale *= 1.12;
+      }
+      mesh.scale.setScalar(scale);
       pileGroup.add(mesh);
       state.pile.push(mesh);
     });
@@ -389,6 +393,7 @@
     var level = MATCH_LEVELS[index];
     state.levelIndex = index;
     state.goals = Object.assign({}, level.goals);
+    delete state.goals[MatchConfig.BLOCKER_TYPE];
     state.tray = [];
     state.timeLeft = level.time;
     state.overlay = null;
