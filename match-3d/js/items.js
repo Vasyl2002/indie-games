@@ -393,6 +393,21 @@
     return mesh;
   }
 
+  function fitForIcon(item) {
+    item.rotation.set(-0.12, 0.55, 0);
+    item.updateMatrixWorld(true);
+    var box = new THREE.Box3().setFromObject(item);
+    var size = box.getSize(new THREE.Vector3());
+    var center = box.getCenter(new THREE.Vector3());
+    item.position.sub(center);
+    var longest = Math.max(size.x, size.y, size.z, 0.01);
+    item.scale.multiplyScalar(0.92 / longest);
+    item.updateMatrixWorld(true);
+    box.setFromObject(item);
+    center = box.getCenter(new THREE.Vector3());
+    item.position.sub(center);
+  }
+
   function ensureIconRenderer() {
     if (iconRenderer) {
       return iconRenderer;
@@ -406,19 +421,18 @@
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.15;
     var scene = new THREE.Scene();
-    scene.environment = getEnvMap();
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x4a6a88, 1.1));
-    var key = new THREE.DirectionalLight(0xffffff, 1.35);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x4a6a88, 1.15));
+    var key = new THREE.DirectionalLight(0xffffff, 1.2);
     key.position.set(2.2, 3.4, 2.8);
     scene.add(key);
-    var fill = new THREE.DirectionalLight(0x9ecbff, 0.45);
+    var fill = new THREE.DirectionalLight(0x9ecbff, 0.4);
     fill.position.set(-2, 1, -1);
     scene.add(fill);
-    var camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
-    camera.position.set(0.45, 0.62, 1.85);
-    camera.lookAt(0, 0.02, 0);
+    var camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
+    camera.position.set(0, 0.08, 2.55);
+    camera.lookAt(0, 0, 0);
     iconRenderer = { renderer: renderer, scene: scene, camera: camera, canvas: canvas };
     return iconRenderer;
   }
@@ -429,7 +443,7 @@
     }
     var pack = ensureIconRenderer();
     var item = createItem(type);
-    item.scale.setScalar(1.2);
+    fitForIcon(item);
     pack.scene.add(item);
     pack.renderer.render(pack.scene, pack.camera);
     pack.scene.remove(item);

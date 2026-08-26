@@ -138,6 +138,11 @@ body {
   background: var(--cyan);
   color: #102226;
 }
+.lang-btn.off,
+.music-btn.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
 
 .brand {
   padding: 8px 20px 0;
@@ -165,10 +170,25 @@ body {
   padding: 18px 12px 4px;
   min-height: 72px;
 }
-.menu-toys img {
-  width: 64px;
-  height: 64px;
-  filter: drop-shadow(0 8px 10px rgba(0, 40, 80, 0.35));
+.toy-frame {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: rgba(8, 32, 64, 0.28);
+  border: 3px solid rgba(8, 36, 72, 0.45);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  box-sizing: border-box;
+}
+.menu-toys img,
+.toy-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .lead {
@@ -264,6 +284,8 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 0 #b7bcc8;
+  overflow: hidden;
+  padding: 7px;
 }
 .goal .count {
   position: absolute;
@@ -277,6 +299,13 @@ body {
   font-weight: 700;
   padding: 2px 6px;
   box-shadow: 0 2px 0 #c5cad4;
+}
+.goal .toy-icon {
+  width: 100%;
+  height: 100%;
+  max-width: 38px;
+  max-height: 38px;
+  object-fit: contain;
 }
 .goal.done {
   opacity: 0.38;
@@ -354,10 +383,12 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  padding: 4px;
 }
 .slot .toy-icon {
-  width: 26px;
-  height: 26px;
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
 }
 
 .boosters {
@@ -446,9 +477,10 @@ body.bomb-aim #view {
 }
 
 .toy-icon {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 

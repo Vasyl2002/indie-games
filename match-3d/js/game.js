@@ -95,6 +95,9 @@
       if (typeof data.coins === "number") {
         state.coins = Math.max(0, data.coins);
       }
+      if (data.muted) {
+        audio.muted = true;
+      }
       if (data.lang === "ru" || data.lang === "en") {
         i18n.lang = data.lang;
       }
@@ -106,7 +109,7 @@
   function saveProgress() {
     localStorage.setItem(
       "pair-pop-progress",
-      JSON.stringify({ unlocked: state.unlocked, lang: i18n.lang, coins: state.coins })
+      JSON.stringify({ unlocked: state.unlocked, lang: i18n.lang, coins: state.coins, muted: audio.muted })
     );
   }
 
@@ -171,6 +174,9 @@
     document.getElementById("btn-overlay-menu").textContent = t("toLevels");
     document.getElementById("btn-ad").textContent = t("adBtn");
     document.querySelectorAll(".lang-btn").forEach(function (btn) {
+      if (btn.hasAttribute("data-music")) {
+        return;
+      }
       btn.classList.toggle("active", btn.getAttribute("data-lang") === i18n.lang);
     });
     if (state.screen === "levels") {
@@ -181,6 +187,14 @@
       renderGoals();
     }
     updateCoinsHud();
+    applyMusicButtons();
+  }
+
+  function applyMusicButtons() {
+    document.querySelectorAll("[data-music]").forEach(function (btn) {
+      btn.classList.toggle("off", audio.muted);
+      btn.setAttribute("aria-pressed", audio.muted ? "false" : "true");
+    });
   }
 
   function renderLevelGrid() {
@@ -310,10 +324,13 @@
     }
     box.innerHTML = "";
     ["duck", "burger", "donut", "apple", "ball", "cat"].forEach(function (type) {
+      var wrap = document.createElement("div");
+      wrap.className = "toy-frame";
       var img = document.createElement("img");
       img.src = MatchItems.iconUrl(type);
       img.alt = "";
-      box.appendChild(img);
+      wrap.appendChild(img);
+      box.appendChild(wrap);
     });
   }
 
@@ -812,13 +829,26 @@
     });
     document.querySelectorAll(".lang-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
+        if (btn.hasAttribute("data-music")) {
+          return;
+        }
         i18n.lang = btn.getAttribute("data-lang");
         saveProgress();
         applyLang();
       });
     });
+    document.querySelectorAll("[data-music]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        audio.toggleMute();
+        saveProgress();
+        applyMusicButtons();
+      });
+    });
     canvas.addEventListener("pointerdown", onPointer);
     window.addEventListener("resize", resize);
+    document.body.addEventListener("pointerdown", function () {
+      audio.ensure();
+    });
   }
 
   loadProgress();
