@@ -58,7 +58,7 @@
       return;
     }
     this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicGain.gain.setValueAtTime(this.muted ? 0 : 0.22, this.ctx.currentTime);
+    this.musicGain.gain.setValueAtTime(this.muted ? 0 : 0.32, this.ctx.currentTime);
   };
 
   MatchAudio.prototype.setMuted = function (muted) {
@@ -68,6 +68,7 @@
       this.stopMusic();
     } else {
       this.unlockAndPlay();
+      this.beep(784, 0.12, "triangle", 0.07);
     }
   };
 
