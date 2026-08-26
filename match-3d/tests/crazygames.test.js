@@ -6,19 +6,45 @@ var path = require("path");
 var vm = require("vm");
 
 function loadCrazy(locationSearch) {
+  var messageListeners = [];
   var scope = {
     window: {},
     global: null,
     Promise: Promise,
     location: { search: locationSearch || "" },
+    addEventListener: function (type, fn) {
+      if (type === "message") {
+        messageListeners.push(fn);
+      }
+    },
   };
   scope.global = scope;
   scope.window = scope;
+  scope.__messageListeners = messageListeners;
   vm.runInNewContext(
     fs.readFileSync(path.join(__dirname, "..", "js/crazygames.js"), "utf8"),
     scope
   );
   return scope;
+}
+
+function throwingSdk(gameObj) {
+  var inited = false;
+  var sdkObj = {
+    init: function () {
+      inited = true;
+      return Promise.resolve();
+    },
+  };
+  Object.defineProperty(sdkObj, "game", {
+    get: function () {
+      if (!inited) {
+        throw new Error("CrazySDK is not initialized yet");
+      }
+      return gameObj;
+    },
+  });
+  return sdkObj;
 }
 
 var html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
@@ -36,6 +62,7 @@ assert.ok(game.indexOf("setPlatformMuted") !== -1);
 assert.ok(wrapper.indexOf("requestAd") === -1);
 assert.ok(wrapper.indexOf("muteAudio") !== -1);
 assert.ok(wrapper.indexOf("addSettingsChangeListener") !== -1);
+assert.ok(wrapper.indexOf("audioChanged") !== -1);
 assert.ok(game.indexOf("gameplayStart") !== -1);
 
 var scope = loadCrazy();
@@ -46,43 +73,46 @@ assert.strictEqual(typeof scope.CrazySDK.showRewarded, "undefined");
 var started = 0;
 var settingsListeners = [];
 var mutes = [];
-scope.CrazyGames = {
-  SDK: {
-    init: function () {
-      return Promise.resolve();
-    },
-    game: {
-      settings: { muteAudio: false },
-      addSettingsChangeListener: function (fn) {
-        settingsListeners.push(fn);
-      },
-      gameplayStart: function () {
-        started += 1;
-      },
-      gameplayStop: function () {
-        started -= 1;
-      },
-      happytime: function () {},
-    },
+var gameObj = {
+  settings: { muteAudio: false },
+  addSettingsChangeListener: function (fn) {
+    settingsListeners.push(fn);
   },
+  gameplayStart: function () {
+    started += 1;
+  },
+  gameplayStop: function () {
+    started -= 1;
+  },
+  happytime: function () {},
 };
+scope.CrazyGames = { SDK: throwingSdk(gameObj) };
 
 return scope.CrazySDK.init({
   onMute: function (value) {
     mutes.push(value);
   },
 }).then(function () {
-  assert.strictEqual(scope.CrazySDK.isReady(), true);
+  assert.strictEqual(scope.CrazySDK.isReady(), true, "init finishes even if SDK.game throws beforehand");
   scope.CrazySDK.gameplayStart();
   assert.strictEqual(started, 1);
-  assert.strictEqual(settingsListeners.length, 1);
+  assert.strictEqual(settingsListeners.length, 1, "mute listener is attached after init");
   assert.strictEqual(mutes[0], false);
   assert.strictEqual(scope.CrazySDK.isAudioMuted(), false);
 
-  scope.CrazyGames.SDK.game.settings.muteAudio = true;
+  gameObj.settings.muteAudio = true;
   settingsListeners[0]({ muteAudio: true });
   assert.strictEqual(mutes[mutes.length - 1], true);
   assert.strictEqual(scope.CrazySDK.isAudioMuted(), true);
+
+  gameObj.settings.muteAudio = false;
+  settingsListeners[0]({ muteAudio: false });
+  assert.strictEqual(mutes[mutes.length - 1], false);
+
+  scope.__messageListeners[0]({
+    data: { messageTarget: "sdk", type: "audioChanged", muteAudio: true },
+  });
+  assert.strictEqual(mutes[mutes.length - 1], true, "parent audioChanged message mutes the game");
 
   var queryScope = loadCrazy("?muteAudio=true");
   var queryMutes = [];
