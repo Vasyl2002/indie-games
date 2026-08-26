@@ -206,8 +206,8 @@
 
   function applyMusicButtons() {
     document.querySelectorAll("[data-music]").forEach(function (btn) {
-      btn.classList.toggle("off", audio.muted);
-      btn.setAttribute("aria-pressed", audio.muted ? "false" : "true");
+      btn.classList.toggle("off", audio.isSilent());
+      btn.setAttribute("aria-pressed", audio.isSilent() ? "false" : "true");
     });
   }
 
@@ -890,6 +890,10 @@
         state.paused = false;
         CrazySDK.gameplayStart();
       }
+    },
+    onMute: function (muted) {
+      audio.setPlatformMuted(muted);
+      applyMusicButtons();
     },
   });
   requestAnimationFrame(frame);

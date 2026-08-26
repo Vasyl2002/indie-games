@@ -39,6 +39,7 @@
     this.ctx = null;
     this.enabled = true;
     this.muted = false;
+    this.platformMuted = false;
     this.musicOn = false;
     this.musicSource = null;
     this.musicBuffer = null;
@@ -55,8 +56,8 @@
       this.ctx = new C();
       this.musicGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.muted ? 0 : 0.38;
-      this.sfxGain.gain.value = 0.7;
+      this.musicGain.gain.value = this.isSilent() ? 0 : 0.38;
+      this.sfxGain.gain.value = this.isSilent() ? 0 : 0.7;
       this.musicGain.connect(this.ctx.destination);
       this.sfxGain.connect(this.ctx.destination);
       this.musicBuffer = this.buildLoopBuffer();
@@ -122,7 +123,7 @@
     if (!ctx) {
       return;
     }
-    if (!this.muted) {
+    if (!this.isSilent()) {
       this.startMusic();
     }
   };
@@ -131,7 +132,10 @@
     if (!this.musicGain) {
       return;
     }
-    var value = this.muted ? 0 : 0.38;
+    var value = this.isSilent() ? 0 : 0.38;
+    if (this.sfxGain) {
+      this.sfxGain.gain.value = this.isSilent() ? 0 : 0.7;
+    }
     if (this.ctx && this.musicGain.gain.setValueAtTime) {
       try {
         this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -144,10 +148,27 @@
     this.musicGain.gain.value = value;
   };
 
+  MatchAudio.prototype.isSilent = function () {
+    return !!this.muted || !!this.platformMuted;
+  };
+
   MatchAudio.prototype.setMuted = function (muted) {
     this.muted = !!muted;
     this.applyMusicGain();
-    if (this.muted) {
+    if (this.isSilent()) {
+      this.stopMusic();
+    } else {
+      this.unlockAndPlay();
+    }
+  };
+
+  MatchAudio.prototype.setPlatformMuted = function (muted) {
+    this.platformMuted = !!muted;
+    this.applyMusicGain();
+    if (this.sfxGain) {
+      this.sfxGain.gain.value = this.isSilent() ? 0 : 0.7;
+    }
+    if (this.isSilent()) {
       this.stopMusic();
     } else {
       this.unlockAndPlay();
@@ -155,6 +176,9 @@
   };
 
   MatchAudio.prototype.toggleMute = function () {
+    if (this.platformMuted) {
+      return true;
+    }
     this.setMuted(!this.muted);
     return this.muted;
   };
@@ -178,7 +202,7 @@
 
   MatchAudio.prototype.startMusic = function () {
     var ctx = this.ctx;
-    if (!ctx || this.muted) {
+    if (!ctx || this.isSilent()) {
       return;
     }
     if (this.musicOn && this.musicSource) {
@@ -228,13 +252,13 @@
         /* ignore */
       }
     }
-    if (!this.muted) {
+    if (!this.isSilent()) {
       this.unlockAndPlay();
     }
   };
 
   MatchAudio.prototype.beep = function (freq, dur, type, gain) {
-    if (!this.enabled) {
+    if (!this.enabled || this.isSilent()) {
       return;
     }
     var ctx = this.ensure();

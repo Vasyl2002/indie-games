@@ -10,7 +10,7 @@ python3 -m http.server 8080
 
 Then go to `http://localhost:8080/match-3d/`.
 
-CrazyGames package: `pair_pop_crazygames.zip` (extract — `index.html` is at the archive root). Built for **Basic Launch**: SDK gameplay events only, no in-game ads.
+CrazyGames package: `pair_pop_crazygames.zip` (extract — `index.html` is at the archive root). Built for **Basic Launch**: SDK gameplay events and platform mute (`muteAudio`), no in-game ads.
 
 https://github.com/Vasyl2002/indie-games/raw/cursor/magic-sort-game-de27/pair_pop_crazygames.zip
 

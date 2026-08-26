@@ -2,9 +2,11 @@
   "use strict";
 
   var ready = false;
+  var muteBound = false;
   var hooks = {
     onPause: function () {},
     onResume: function () {},
+    onMute: function () {},
   };
 
   function sdk() {
@@ -24,15 +26,73 @@
     }
   }
 
+  function queryMute() {
+    try {
+      var search = (global.location && global.location.search) || "";
+      return /(?:^|[?&])muteAudio=true(?:&|$)/.test(search);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function readMute() {
+    if (queryMute()) {
+      return true;
+    }
+    var game = gameModule();
+    if (game && game.settings && game.settings.muteAudio) {
+      return true;
+    }
+    return false;
+  }
+
+  function applyMute(value) {
+    hooks.onMute(!!value);
+  }
+
+  function bindMute() {
+    applyMute(readMute());
+    var game = gameModule();
+    if (!game || muteBound) {
+      return;
+    }
+    muteBound = true;
+    if (typeof game.addSettingsChangeListener === "function") {
+      safeCall(game.addSettingsChangeListener.bind(game), [
+        function (settings) {
+          applyMute(queryMute() || !!(settings && settings.muteAudio));
+        },
+      ]);
+    }
+    if (typeof game.addEventListener === "function") {
+      safeCall(game.addEventListener.bind(game), [
+        "mute",
+        function () {
+          applyMute(true);
+        },
+      ]);
+      safeCall(game.addEventListener.bind(game), [
+        "unmute",
+        function () {
+          applyMute(queryMute());
+        },
+      ]);
+    }
+  }
+
   function init(options) {
     if (options) {
       hooks.onPause = options.onPause || hooks.onPause;
       hooks.onResume = options.onResume || hooks.onResume;
+      hooks.onMute = options.onMute || hooks.onMute;
     }
+
+    applyMute(readMute());
 
     var instance = sdk();
     if (!instance) {
       ready = true;
+      bindMute();
       return Promise.resolve(null);
     }
 
@@ -55,10 +115,12 @@
         if (typeof stopLoading === "function") {
           safeCall(stopLoading.bind(gameModule()));
         }
+        bindMute();
         return instance;
       })
       .catch(function () {
         ready = true;
+        bindMute();
         return null;
       });
   }
@@ -89,6 +151,7 @@
     gameplayStart: gameplayStart,
     gameplayStop: gameplayStop,
     happytime: happytime,
+    isAudioMuted: readMute,
     isReady: function () {
       return ready;
     },

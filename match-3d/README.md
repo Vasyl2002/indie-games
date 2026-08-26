@@ -27,7 +27,8 @@ https://github.com/Vasyl2002/indie-games/raw/cursor/magic-sort-game-de27/pair_po
 
 ## CrazyGames Basic Launch
 
-- SDK v2 for `init`, `gameplayStart`, and `gameplayStop` only
+- SDK v3 for `init`, `gameplayStart`, and `gameplayStop`
+- Platform mute via `game.settings.muteAudio` and `addSettingsChangeListener` (CrazyGames speaker button)
 - No in-game ads (Basic Launch does not allow them)
 - Menu links to CrazyGames Terms and Privacy
 
