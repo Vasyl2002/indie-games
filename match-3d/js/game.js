@@ -95,8 +95,10 @@
       if (typeof data.coins === "number") {
         state.coins = Math.max(0, data.coins);
       }
-      if (data.muted) {
-        audio.muted = true;
+      if (data.audioRev === 1) {
+        audio.muted = !!data.muted;
+      } else {
+        audio.muted = false;
       }
       if (data.lang === "ru" || data.lang === "en") {
         i18n.lang = data.lang;
@@ -109,7 +111,13 @@
   function saveProgress() {
     localStorage.setItem(
       "pair-pop-progress",
-      JSON.stringify({ unlocked: state.unlocked, lang: i18n.lang, coins: state.coins, muted: audio.muted })
+      JSON.stringify({
+        unlocked: state.unlocked,
+        lang: i18n.lang,
+        coins: state.coins,
+        muted: audio.muted,
+        audioRev: 1,
+      })
     );
   }
 
@@ -848,6 +856,11 @@
     window.addEventListener("resize", resize);
     document.body.addEventListener("pointerdown", function () {
       audio.unlockAndPlay();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) {
+        audio.unlockAndPlay();
+      }
     });
   }
 

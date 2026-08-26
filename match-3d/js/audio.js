@@ -5,12 +5,43 @@
     return 440 * Math.pow(2, (n - 69) / 12);
   }
 
+  function addNote(data, sampleRate, freq, startSec, durSec, gain, type) {
+    var start = Math.max(0, Math.floor(startSec * sampleRate));
+    var len = Math.max(1, Math.floor(durSec * sampleRate));
+    var attack = Math.min(0.02, durSec * 0.25);
+    var release = Math.min(0.08, durSec * 0.35);
+    var i;
+    var t;
+    var env;
+    var phase;
+    var sample;
+    var cycle;
+    for (i = 0; i < len && start + i < data.length; i += 1) {
+      t = i / sampleRate;
+      env = 1;
+      if (t < attack) {
+        env = t / attack;
+      } else if (t > durSec - release) {
+        env = Math.max(0, (durSec - t) / release);
+      }
+      cycle = freq * t;
+      if (type === "triangle") {
+        sample = 1 - 4 * Math.abs(Math.round(cycle - 0.25) - (cycle - 0.25));
+      } else {
+        phase = cycle * Math.PI * 2;
+        sample = Math.sin(phase);
+      }
+      data[start + i] += sample * env * gain;
+    }
+  }
+
   function MatchAudio() {
     this.ctx = null;
     this.enabled = true;
     this.muted = false;
     this.musicOn = false;
-    this.musicTimer = 0;
+    this.musicSource = null;
+    this.musicBuffer = null;
     this.musicGain = null;
     this.sfxGain = null;
   }
@@ -24,127 +55,32 @@
       this.ctx = new C();
       this.musicGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.muted ? 0 : 0.32;
+      this.musicGain.gain.value = this.muted ? 0 : 0.38;
       this.sfxGain.gain.value = 0.7;
       this.musicGain.connect(this.ctx.destination);
       this.sfxGain.connect(this.ctx.destination);
+      this.musicBuffer = this.buildLoopBuffer();
     }
-    if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+    if (this.ctx.state === "suspended" && this.ctx.resume) {
+      try {
+        this.ctx.resume();
+      } catch (err) {
+        /* iOS can reject resume outside a gesture; caller retries on tap */
+      }
     }
     return this.ctx;
   };
 
-  MatchAudio.prototype.unlockAndPlay = function () {
-    var self = this;
-    var ctx = this.ensure();
-    if (!ctx) {
-      return;
-    }
-    var start = function () {
-      if (!self.muted) {
-        self.startMusic();
-      }
-    };
-    if (ctx.state === "suspended") {
-      ctx.resume().then(start).catch(start);
-    } else {
-      start();
-    }
-  };
-
-  MatchAudio.prototype.applyMusicGain = function () {
-    if (!this.musicGain || !this.ctx) {
-      return;
-    }
-    this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicGain.gain.setValueAtTime(this.muted ? 0 : 0.32, this.ctx.currentTime);
-  };
-
-  MatchAudio.prototype.setMuted = function (muted) {
-    this.muted = !!muted;
-    this.applyMusicGain();
-    if (this.muted) {
-      this.stopMusic();
-    } else {
-      this.unlockAndPlay();
-      this.beep(784, 0.12, "triangle", 0.07);
-    }
-  };
-
-  MatchAudio.prototype.toggleMute = function () {
-    this.setMuted(!this.muted);
-    return this.muted;
-  };
-
-  MatchAudio.prototype.stopMusic = function () {
-    this.musicOn = false;
-    if (this.musicTimer) {
-      global.clearTimeout(this.musicTimer);
-      this.musicTimer = 0;
-    }
-  };
-
-  MatchAudio.prototype.beep = function (freq, dur, type, gain) {
-    if (!this.enabled) {
-      return;
-    }
-    var ctx = this.ensure();
-    if (!ctx || !this.sfxGain) {
-      return;
-    }
-    var now = ctx.currentTime;
-    var osc = ctx.createOscillator();
-    var amp = ctx.createGain();
-    osc.type = type || "sine";
-    osc.frequency.value = freq;
-    amp.gain.setValueAtTime(0, now);
-    amp.gain.linearRampToValueAtTime(gain || 0.06, now + 0.02);
-    amp.gain.linearRampToValueAtTime(0, now + dur);
-    osc.connect(amp);
-    amp.connect(this.sfxGain);
-    osc.start(now);
-    osc.stop(now + dur + 0.03);
-  };
-
-  MatchAudio.prototype.tone = function (freq, start, dur, type, gain) {
+  MatchAudio.prototype.buildLoopBuffer = function () {
     var ctx = this.ctx;
-    if (!ctx || !this.musicGain || this.muted) {
-      return;
-    }
-    var t0 = Math.max(start, ctx.currentTime + 0.01);
-    var len = Math.max(0.06, dur);
-    try {
-      var osc = ctx.createOscillator();
-      var amp = ctx.createGain();
-      osc.type = type || "triangle";
-      osc.frequency.setValueAtTime(freq, t0);
-      amp.gain.setValueAtTime(0, t0);
-      amp.gain.linearRampToValueAtTime(gain, t0 + 0.02);
-      amp.gain.linearRampToValueAtTime(0, t0 + len);
-      osc.connect(amp);
-      amp.connect(this.musicGain);
-      osc.start(t0);
-      osc.stop(t0 + len + 0.03);
-    } catch (err) {
-      return;
-    }
-  };
-
-  MatchAudio.prototype.startMusic = function () {
-    var self = this;
-    var ctx = this.ctx;
-    if (!ctx || this.muted || this.musicOn) {
-      return;
-    }
-    this.musicOn = true;
-    this.applyMusicGain();
-
     var bpm = 126;
     var beat = 60 / bpm;
     var loopBeats = 16;
-    var loopDur = loopBeats * beat;
-
+    var duration = loopBeats * beat;
+    var sampleRate = ctx.sampleRate || 44100;
+    var length = Math.max(1, Math.floor(sampleRate * duration));
+    var buffer = ctx.createBuffer(1, length, sampleRate);
+    var data = buffer.getChannelData(0);
     var melody = [
       [0, 76, 0.45], [0.5, 79, 0.45], [1, 84, 0.7], [2, 79, 0.4], [2.5, 81, 0.4], [3, 84, 0.9],
       [4, 83, 0.4], [4.5, 81, 0.4], [5, 79, 0.7], [6, 76, 0.4], [6.5, 79, 0.4], [7, 72, 0.9],
@@ -159,28 +95,136 @@
       [1.5, 91, 0.18], [3.5, 88, 0.18], [5.5, 91, 0.18], [7.5, 84, 0.2],
       [9.5, 93, 0.18], [11.5, 91, 0.18], [13.75, 96, 0.22], [15.5, 88, 0.22],
     ];
-
-    function schedule(fromTime) {
-      if (!self.musicOn || self.muted || !self.ctx) {
-        return;
-      }
-      var at = Math.max(fromTime, self.ctx.currentTime + 0.05);
-      melody.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "triangle", 0.28);
-      });
-      bass.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.2);
-      });
-      sparkle.forEach(function (n) {
-        self.tone(midi(n[1]), at + n[0] * beat, n[2] * beat, "sine", 0.1);
-      });
-      var wait = Math.max(200, (at + loopDur - self.ctx.currentTime) * 1000 - 120);
-      self.musicTimer = global.setTimeout(function () {
-        schedule(at + loopDur);
-      }, wait);
+    var peak = 0.0001;
+    var i;
+    melody.forEach(function (n) {
+      addNote(data, sampleRate, midi(n[1]), n[0] * beat, n[2] * beat, 0.42, "triangle");
+    });
+    bass.forEach(function (n) {
+      addNote(data, sampleRate, midi(n[1]), n[0] * beat, n[2] * beat, 0.32, "sine");
+    });
+    sparkle.forEach(function (n) {
+      addNote(data, sampleRate, midi(n[1]), n[0] * beat, n[2] * beat, 0.14, "sine");
+    });
+    for (i = 0; i < data.length; i += 1) {
+      peak = Math.max(peak, Math.abs(data[i]));
     }
+    if (peak > 0.9) {
+      for (i = 0; i < data.length; i += 1) {
+        data[i] *= 0.9 / peak;
+      }
+    }
+    return buffer;
+  };
 
-    schedule(ctx.currentTime + 0.08);
+  MatchAudio.prototype.unlockAndPlay = function () {
+    var ctx = this.ensure();
+    if (!ctx) {
+      return;
+    }
+    if (!this.muted) {
+      this.startMusic();
+    }
+  };
+
+  MatchAudio.prototype.applyMusicGain = function () {
+    if (!this.musicGain) {
+      return;
+    }
+    var value = this.muted ? 0 : 0.38;
+    if (this.ctx && this.musicGain.gain.setValueAtTime) {
+      try {
+        this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.musicGain.gain.setValueAtTime(value, this.ctx.currentTime);
+        return;
+      } catch (err) {
+        /* fall through */
+      }
+    }
+    this.musicGain.gain.value = value;
+  };
+
+  MatchAudio.prototype.setMuted = function (muted) {
+    this.muted = !!muted;
+    this.applyMusicGain();
+    if (this.muted) {
+      this.stopMusic();
+    } else {
+      this.unlockAndPlay();
+    }
+  };
+
+  MatchAudio.prototype.toggleMute = function () {
+    this.setMuted(!this.muted);
+    return this.muted;
+  };
+
+  MatchAudio.prototype.stopMusic = function () {
+    this.musicOn = false;
+    if (this.musicSource) {
+      try {
+        this.musicSource.stop(0);
+      } catch (err) {
+        /* already stopped */
+      }
+      try {
+        this.musicSource.disconnect();
+      } catch (err2) {
+        /* ignore */
+      }
+      this.musicSource = null;
+    }
+  };
+
+  MatchAudio.prototype.startMusic = function () {
+    var ctx = this.ctx;
+    if (!ctx || this.muted) {
+      return;
+    }
+    if (this.musicOn && this.musicSource) {
+      return;
+    }
+    this.stopMusic();
+    if (!this.musicBuffer) {
+      this.musicBuffer = this.buildLoopBuffer();
+    }
+    if (!this.musicBuffer || !this.musicGain) {
+      return;
+    }
+    var source = ctx.createBufferSource();
+    source.buffer = this.musicBuffer;
+    source.loop = true;
+    source.connect(this.musicGain);
+    try {
+      source.start(0);
+    } catch (err) {
+      return;
+    }
+    this.musicSource = source;
+    this.musicOn = true;
+    this.applyMusicGain();
+  };
+
+  MatchAudio.prototype.beep = function (freq, dur, type, gain) {
+    if (!this.enabled) {
+      return;
+    }
+    var ctx = this.ensure();
+    if (!ctx || !this.sfxGain) {
+      return;
+    }
+    var now = ctx.currentTime || 0;
+    var osc = ctx.createOscillator();
+    var amp = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    amp.gain.setValueAtTime(0, now);
+    amp.gain.linearRampToValueAtTime(gain || 0.06, now + 0.02);
+    amp.gain.linearRampToValueAtTime(0, now + dur);
+    osc.connect(amp);
+    amp.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + dur + 0.03);
   };
 
   MatchAudio.prototype.pick = function () {
