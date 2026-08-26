@@ -310,13 +310,14 @@
       var angle = (index / count) * Math.PI * 2 + Math.random() * 0.55;
       var r = Math.sqrt((index + 0.2) / count) * radius * (0.55 + Math.random() * 0.55);
       var y = Math.min(2.1, (index % 8) * 0.14 + Math.random() * 0.22);
-      mesh.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r * 0.86);
-      mesh.rotation.set(Math.random() * 0.85, Math.random() * Math.PI * 2, Math.random() * 0.85);
       var scale = 0.95 + Math.random() * 0.12;
       if (type === MatchConfig.BLOCKER_TYPE) {
         scale *= 1.28;
-        y = Math.min(2.6, y + 0.7 + Math.random() * 0.25);
+        y = Math.min(2.6, y + 0.75 + Math.random() * 0.25);
+        r = Math.max(r, radius * 0.42);
       }
+      mesh.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r * 0.86);
+      mesh.rotation.set(Math.random() * 0.85, Math.random() * Math.PI * 2, Math.random() * 0.85);
       mesh.scale.setScalar(scale);
       pileGroup.add(mesh);
       state.pile.push(mesh);
