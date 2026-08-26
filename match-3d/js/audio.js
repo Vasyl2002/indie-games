@@ -176,9 +176,6 @@
   };
 
   MatchAudio.prototype.toggleMute = function () {
-    if (this.platformMuted) {
-      return true;
-    }
     this.setMuted(!this.muted);
     return this.muted;
   };

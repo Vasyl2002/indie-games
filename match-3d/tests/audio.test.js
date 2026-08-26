@@ -147,13 +147,19 @@ assert.ok(platform.ctxHolder.current.sources[0].stopped, "platform mute stops th
 assert.strictEqual(platform.audio.sfxGain.gain.value, 0);
 
 platform.audio.toggleMute();
-assert.strictEqual(platform.audio.muted, false, "in-game toggle cannot override platform mute");
+assert.strictEqual(platform.audio.muted, true, "in-game mute still toggles while platform is muted");
 assert.strictEqual(platform.audio.isSilent(), true);
 assert.strictEqual(platform.audio.musicOn, false);
 
 platform.audio.setPlatformMuted(false);
+assert.strictEqual(platform.audio.muted, true, "platform unmute keeps the in-game mute preference");
+assert.strictEqual(platform.audio.isSilent(), true);
+assert.strictEqual(platform.audio.musicOn, false);
+
+platform.audio.toggleMute();
+assert.strictEqual(platform.audio.muted, false);
 assert.strictEqual(platform.audio.isSilent(), false);
 assert.strictEqual(platform.audio.musicOn, true);
-assert.ok(platform.ctxHolder.current.sources[1].started, "platform unmute restarts music");
+assert.ok(platform.ctxHolder.current.sources[1].started, "in-game unmute starts music");
 
 console.log("match-3d audio tests passed");

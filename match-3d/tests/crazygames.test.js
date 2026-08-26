@@ -114,6 +114,12 @@ return scope.CrazySDK.init({
   });
   assert.strictEqual(mutes[mutes.length - 1], true, "parent audioChanged message mutes the game");
 
+  var beforeNoise = mutes.length;
+  scope.__messageListeners[0]({
+    data: { type: "audioChanged", muteAudio: true },
+  });
+  assert.strictEqual(mutes.length, beforeNoise, "ignores mute messages that are not from the CrazyGames SDK");
+
   var queryScope = loadCrazy("?muteAudio=true");
   var queryMutes = [];
   return queryScope.CrazySDK.init({

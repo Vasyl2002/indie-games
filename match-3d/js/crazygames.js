@@ -5,7 +5,6 @@
   var muteBound = false;
   var windowMuteBound = false;
   var lastMute = null;
-  var pollTimer = 0;
   var hooks = {
     onPause: function () {},
     onResume: function () {},
@@ -51,13 +50,10 @@
     }
     var game = gameModule();
     try {
-      if (game && game.settings && game.settings.muteAudio) {
-        return true;
-      }
+      return !!(game && game.settings && game.settings.muteAudio === true);
     } catch (err) {
       return false;
     }
-    return false;
   }
 
   function applyMute(value) {
@@ -73,15 +69,13 @@
     if (!data || typeof data !== "object") {
       return;
     }
-    var payload = data.data && typeof data.data === "object" ? data.data : data;
-    var type = data.type || payload.type;
-    var muted = payload.muteAudio;
-    if (typeof muted !== "boolean") {
-      muted = data.muteAudio;
+    if (data.messageTarget !== "sdk" || data.type !== "audioChanged") {
+      return;
     }
-    if (type === "audioChanged" && typeof muted === "boolean") {
-      applyMute(queryMute() || muted);
+    if (typeof data.muteAudio !== "boolean") {
+      return;
     }
+    applyMute(queryMute() || data.muteAudio);
   }
 
   function bindWindowMute() {
@@ -92,15 +86,6 @@
     global.addEventListener("message", function (event) {
       muteFromMessage(event && event.data);
     });
-  }
-
-  function startPolling() {
-    if (pollTimer || typeof global.document === "undefined") {
-      return;
-    }
-    pollTimer = global.setInterval(function () {
-      applyMute(readMute());
-    }, 400);
   }
 
   function callGameFn(names) {
@@ -129,7 +114,7 @@
     if (typeof game.addSettingsChangeListener === "function") {
       safeCall(game.addSettingsChangeListener.bind(game), [
         function (settings) {
-          applyMute(queryMute() || !!(settings && settings.muteAudio));
+          applyMute(queryMute() || !!(settings && settings.muteAudio === true));
         },
       ]);
     }
@@ -153,7 +138,6 @@
     ready = true;
     callGameFn(["loadingStop", "sdkGameLoadingStop"]);
     bindMute();
-    startPolling();
     return instance;
   }
 
