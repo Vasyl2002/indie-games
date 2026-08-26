@@ -2,7 +2,19 @@
   "use strict";
 
   function stonesFor(id) {
-    return 2 + 2 * Math.floor((id - 1) / 4);
+    if (id <= 4) {
+      return 4;
+    }
+    if (id <= 8) {
+      return 6;
+    }
+    if (id <= 12) {
+      return 8;
+    }
+    if (id <= 16) {
+      return 10;
+    }
+    return 12;
   }
 
   function level(id, time, goals, extras) {

@@ -51,8 +51,8 @@ levels.forEach(function (level) {
   });
   assert.ok(total >= 8, "enough objects on level " + level.id);
 });
-assert.strictEqual(levels[0].extras.stone, 2);
-assert.strictEqual(levels[19].extras.stone, 10);
+assert.strictEqual(levels[0].extras.stone, 4);
+assert.strictEqual(levels[19].extras.stone, 12);
 assert.strictEqual(levels[0].time, 50);
 assert.strictEqual(levels[19].time, 180);
 console.log("match-3d level tests passed");
