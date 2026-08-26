@@ -404,6 +404,13 @@ body {
   height: 82%;
   object-fit: contain;
 }
+.slot.stone {
+  background: #2a241c;
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.55);
+}
+.slot.stone .toy-icon {
+  filter: saturate(0.7) brightness(0.92);
+}
 
 .boosters {
   display: flex;

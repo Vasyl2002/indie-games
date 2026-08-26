@@ -3,18 +3,12 @@
 
   function stonesFor(id) {
     if (id <= 4) {
-      return 4;
+      return 2;
     }
-    if (id <= 8) {
-      return 6;
+    if (id <= 10) {
+      return 3;
     }
-    if (id <= 12) {
-      return 8;
-    }
-    if (id <= 16) {
-      return 10;
-    }
-    return 12;
+    return 4;
   }
 
   function level(id, time, goals, extras) {

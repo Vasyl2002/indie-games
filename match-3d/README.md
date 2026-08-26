@@ -19,6 +19,6 @@ Needs a network connection once to load Three.js from the CDN.
 - 20 levels, easy → hard, with a denser pile on later stages
 - Timer from 45 seconds up to 3:00
 - 6 tray slots, match **2** identical toys
-- Gray **stones** clutter every pile. They are not goals; pair two to clear them from the tray
+- Gray **stones** fill tray slots and never match. They are not goals.
 - Extra minute via a rewarded-ad stub (`js/ads.js`). Hook a real SDK later with `window.GameAdsSDK.showRewarded(callback)`
 - English / Russian toggle

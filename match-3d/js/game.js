@@ -11,7 +11,7 @@
     lang: "en",
     en: {
       tagline: "3D MATCH",
-      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out. Gray stones only get in the way — pair them to drop them from the tray, you do not need to collect them.",
+      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals. Gray stones fill empty slots and never match — they just make the tray tighter.",
       play: "Play",
       levels: "Levels",
       back: "Back",
@@ -28,7 +28,7 @@
       loseTray: "Tray is full!",
       winDetail: "Nice pairing! +30 coins",
       loseTimeDetail: "Watch an ad for one extra minute, or retry.",
-      loseTrayDetail: "Match two identical toys before all 6 slots fill.",
+      loseTrayDetail: "Match two identical toys before all 6 slots fill. Stones stay in the tray and do not pair.",
       level: "LEVEL",
       bomb: "Bomb",
       bombHint: "Tap the pile to throw the bomb",
@@ -36,7 +36,7 @@
     },
     ru: {
       tagline: "3D МАТЧ",
-      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели до конца таймера. Серые камни только мешают — два камня можно убрать из лотка, собирать их не нужно.",
+      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели. Серые камни только занимают свободные ячейки и не собираются в пару.",
       play: "Играть",
       levels: "Уровни",
       back: "Назад",
@@ -53,7 +53,7 @@
       loseTray: "Лоток заполнен!",
       winDetail: "Отличные пары! +30 монет",
       loseTimeDetail: "Посмотри рекламу и получи ещё минуту — или начни заново.",
-      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 6 слотов.",
+      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 6 слотов. Камни остаются в лотке и не складываются в пару.",
       level: "УРОВЕНЬ",
       bomb: "Бомба",
       bombHint: "Нажми на кучу, куда кинуть бомбу",
@@ -370,7 +370,7 @@
     for (var i = 0; i < TRAY_SIZE; i += 1) {
       var slot = document.createElement("div");
       var item = state.tray[i];
-      slot.className = "slot" + (item ? " filled" : "");
+      slot.className = "slot" + (item ? " filled" : "") + (item && isBlocker(item.type) ? " stone" : "");
       if (item) {
         slot.innerHTML = typeIcon(item.type);
       }
@@ -414,6 +414,11 @@
     resize();
   }
 
+  function isBlocker(type) {
+    var spec = MatchConfig.TYPE_MAP[type];
+    return !!(spec && spec.blocker);
+  }
+
   function firstEmptySlot() {
     return state.tray.length;
   }
@@ -433,7 +438,7 @@
   }
 
   function tryMatch(type) {
-    if (countType(type) < MATCH_SIZE) {
+    if (isBlocker(type) || countType(type) < MATCH_SIZE) {
       return false;
     }
     var removed = 0;
@@ -550,6 +555,9 @@
   function hasPendingMatch() {
     var counts = {};
     state.tray.forEach(function (item) {
+      if (!item || isBlocker(item.type)) {
+        return;
+      }
       counts[item.type] = (counts[item.type] || 0) + 1;
     });
     return Object.keys(counts).some(function (type) {
