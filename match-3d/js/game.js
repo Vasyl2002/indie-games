@@ -11,7 +11,7 @@
     lang: "en",
     en: {
       tagline: "3D MATCH",
-      lead: "Tap toys from the pile, pair two identical ones in the 10-slot tray, and clear the goals before time runs out.",
+      lead: "Tap toys from the pile, pair two identical ones in the 6-slot tray, and clear the goals before time runs out.",
       play: "Play",
       levels: "Levels",
       back: "Back",
@@ -28,7 +28,7 @@
       loseTray: "Tray is full!",
       winDetail: "Nice pairing! +30 coins",
       loseTimeDetail: "Watch an ad for one extra minute, or retry.",
-      loseTrayDetail: "Match two identical toys before all 10 slots fill.",
+      loseTrayDetail: "Match two identical toys before all 6 slots fill.",
       level: "LEVEL",
       bomb: "Bomb",
       bombHint: "Tap the pile to throw the bomb",
@@ -36,7 +36,7 @@
     },
     ru: {
       tagline: "3D МАТЧ",
-      lead: "Нажимай игрушки в куче, собирай пары в лотке из 10 слотов и закрой цели до конца таймера.",
+      lead: "Нажимай игрушки в куче, собирай пары в лотке из 6 слотов и закрой цели до конца таймера.",
       play: "Играть",
       levels: "Уровни",
       back: "Назад",
@@ -53,7 +53,7 @@
       loseTray: "Лоток заполнен!",
       winDetail: "Отличные пары! +30 монет",
       loseTimeDetail: "Посмотри рекламу и получи ещё минуту — или начни заново.",
-      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 10 слотов.",
+      loseTrayDetail: "Собери две одинаковые игрушки, пока не заняты все 6 слотов.",
       level: "УРОВЕНЬ",
       bomb: "Бомба",
       bombHint: "Нажми на кучу, куда кинуть бомбу",
@@ -359,6 +359,7 @@
 
   function renderTray() {
     var tray = document.getElementById("tray");
+    tray.style.gridTemplateColumns = "repeat(" + TRAY_SIZE + ", 1fr)";
     tray.innerHTML = "";
     for (var i = 0; i < TRAY_SIZE; i += 1) {
       var slot = document.createElement("div");

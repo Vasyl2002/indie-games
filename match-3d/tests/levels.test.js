@@ -16,8 +16,11 @@ function load(file) {
 var config = load("js/config.js").MatchConfig;
 var levels = load("js/levels.js").MATCH_LEVELS;
 
-assert.strictEqual(config.TRAY_SIZE, 10);
+assert.strictEqual(config.TRAY_SIZE, 6);
 assert.strictEqual(config.MATCH_SIZE, 2);
+assert.ok(fs.readFileSync(path.join(__dirname, "..", "css", "style.css"), "utf8").indexOf("repeat(6") !== -1);
+assert.ok(fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8").indexOf("6-slot tray") !== -1);
+assert.ok(fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8").indexOf("10-slot") === -1);
 assert.strictEqual(config.WIN_COINS, 30);
 assert.strictEqual(config.BOMB_COST, 30);
 levels.forEach(function (level) {

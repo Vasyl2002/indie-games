@@ -26,7 +26,7 @@
   });
 
   global.MatchConfig = {
-    TRAY_SIZE: 10,
+    TRAY_SIZE: 6,
     MATCH_SIZE: 2,
     MAX_TIME: 180,
     WIN_COINS: 30,
