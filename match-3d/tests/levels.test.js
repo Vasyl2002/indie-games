@@ -18,7 +18,11 @@ var levels = load("js/levels.js").MATCH_LEVELS;
 
 assert.strictEqual(config.TRAY_SIZE, 6);
 assert.strictEqual(config.MATCH_SIZE, 2);
-assert.ok(fs.readFileSync(path.join(__dirname, "..", "css", "style.css"), "utf8").indexOf("repeat(6") !== -1);
+var css = fs.readFileSync(path.join(__dirname, "..", "css", "style.css"), "utf8");
+var html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+assert.ok(css.indexOf("repeat(6") !== -1);
+assert.ok(css.indexOf("top: -7px") === -1, "goal counts must sit inside the card");
+assert.strictEqual((html.match(/class="slot"/g) || []).length, 6);
 assert.ok(fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8").indexOf("6-slot tray") !== -1);
 assert.ok(fs.readFileSync(path.join(__dirname, "..", "js", "game.js"), "utf8").indexOf("10-slot") === -1);
 assert.strictEqual(config.WIN_COINS, 30);

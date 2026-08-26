@@ -269,42 +269,50 @@ body {
 
 .goals {
   display: flex;
-  gap: 8px;
-  padding: 4px 12px 10px;
+  gap: 10px;
+  padding: 6px 12px 12px;
   overflow-x: auto;
 }
 .goal {
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
-  border-radius: 14px;
+  width: 68px;
+  height: 72px;
+  flex: 0 0 68px;
+  border-radius: 16px;
   background: var(--tile);
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   box-shadow: 0 4px 0 #b7bcc8;
   overflow: hidden;
-  padding: 7px;
+  padding: 6px 6px 8px;
 }
 .goal .count {
-  position: absolute;
-  top: -7px;
-  left: -6px;
-  background: #fff;
+  position: relative;
+  top: auto;
+  left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 20px;
+  margin: 0 0 2px;
+  background: #ff9a2e;
   color: #1c1f27;
   border-radius: 999px;
-  min-width: 22px;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 700;
-  padding: 2px 6px;
-  box-shadow: 0 2px 0 #c5cad4;
+  padding: 0 7px;
+  box-shadow: 0 2px 0 #c47a18;
+  z-index: 1;
 }
 .goal .toy-icon {
-  width: 100%;
-  height: 100%;
-  max-width: 38px;
-  max-height: 38px;
+  width: 42px;
+  height: 42px;
+  max-width: 42px;
+  max-height: 42px;
   object-fit: contain;
 }
 .goal.done {
@@ -328,7 +336,9 @@ body {
 }
 
 .tray-wrap {
-  margin: 8px 12px 0;
+  margin: 8px auto 0;
+  width: calc(100% - 28px);
+  max-width: 340px;
   padding: 10px;
   border-radius: 18px;
   background: #2a2f38;
@@ -371,12 +381,13 @@ body {
 
 .tray {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
 }
 .slot {
   aspect-ratio: 1;
-  border-radius: 8px;
+  min-height: 44px;
+  border-radius: 10px;
   background: var(--slot-in);
   box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.45);
   display: flex;

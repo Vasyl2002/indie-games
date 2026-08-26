@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#12141a" />
     <title>Pair Pop 3D</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=26c" />
   </head>
   <body>
     <div class="app">
@@ -68,7 +70,14 @@
           <div id="bomb-hint" class="bomb-hint hidden">Tap the pile to throw the bomb</div>
         </div>
         <div class="tray-wrap">
-          <div id="tray" class="tray"></div>
+          <div id="tray" class="tray">
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+          </div>
         </div>
         <div class="boosters">
           <button id="btn-bomb" class="booster" type="button">
@@ -124,11 +133,11 @@
     <div id="toast" class="toast hidden"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/levels.js"></script>
-    <script src="js/items.js"></script>
-    <script src="js/ads.js"></script>
-    <script src="js/audio.js"></script>
-    <script src="js/game.js"></script>
+    <script src="js/config.js?v=26c"></script>
+    <script src="js/levels.js?v=26c"></script>
+    <script src="js/items.js?v=26c"></script>
+    <script src="js/ads.js?v=26c"></script>
+    <script src="js/audio.js?v=26c"></script>
+    <script src="js/game.js?v=26c"></script>
   </body>
 </html>
