@@ -398,6 +398,7 @@
   }
 
   function startLevel(index) {
+    audio.userPlay();
     var level = MATCH_LEVELS[index];
     state.levelIndex = index;
     state.goals = Object.assign({}, level.goals);
@@ -799,7 +800,7 @@
 
   function bindUi() {
     document.getElementById("btn-play").addEventListener("click", function () {
-      audio.unlockAndPlay();
+      audio.userPlay();
       startLevel(0);
     });
     document.getElementById("btn-levels").addEventListener("click", function () {
@@ -861,6 +862,10 @@
     canvas.addEventListener("pointerdown", onPointer);
     window.addEventListener("resize", resize);
     document.body.addEventListener("pointerdown", function () {
+      if (!audio.ctx) {
+        audio.userPlay();
+        return;
+      }
       audio.unlockAndPlay();
     });
     document.addEventListener("visibilitychange", function () {

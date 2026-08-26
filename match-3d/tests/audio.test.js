@@ -162,4 +162,13 @@ assert.strictEqual(platform.audio.isSilent(), false);
 assert.strictEqual(platform.audio.musicOn, true);
 assert.ok(platform.ctxHolder.current.sources[1].started, "in-game unmute starts music");
 
+var stuck = loadAudio();
+stuck.audio.unlockAndPlay();
+stuck.audio.setPlatformMuted(true);
+assert.strictEqual(stuck.audio.musicOn, false);
+stuck.audio.userPlay();
+assert.strictEqual(stuck.audio.platformMuted, false, "user gesture clears sticky platform mute");
+assert.strictEqual(stuck.audio.musicOn, true);
+assert.ok(stuck.ctxHolder.current.sources[1].started, "userPlay starts the melody");
+
 console.log("match-3d audio tests passed");

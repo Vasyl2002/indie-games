@@ -105,7 +105,6 @@
   }
 
   function bindMute() {
-    applyMute(readMute());
     var game = gameModule();
     if (!game || muteBound) {
       return;
@@ -150,7 +149,9 @@
 
     lastMute = null;
     bindWindowMute();
-    applyMute(readMute());
+    if (queryMute()) {
+      applyMute(true);
+    }
 
     var instance = sdk();
     if (!instance) {

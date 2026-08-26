@@ -118,14 +118,31 @@
     return buffer;
   };
 
+  MatchAudio.prototype.queryMute = function () {
+    try {
+      var search = (global.location && global.location.search) || "";
+      return /(?:^|[?&])muteAudio=true(?:&|$)/.test(search);
+    } catch (err) {
+      return false;
+    }
+  };
+
   MatchAudio.prototype.unlockAndPlay = function () {
     var ctx = this.ensure();
     if (!ctx) {
       return;
     }
+    this.applyMusicGain();
     if (!this.isSilent()) {
       this.startMusic();
     }
+  };
+
+  MatchAudio.prototype.userPlay = function () {
+    if (!this.queryMute()) {
+      this.platformMuted = false;
+    }
+    this.unlockAndPlay();
   };
 
   MatchAudio.prototype.applyMusicGain = function () {
@@ -176,7 +193,12 @@
   };
 
   MatchAudio.prototype.toggleMute = function () {
-    this.setMuted(!this.muted);
+    if (this.muted) {
+      this.muted = false;
+      this.userPlay();
+    } else {
+      this.setMuted(true);
+    }
     return this.muted;
   };
 

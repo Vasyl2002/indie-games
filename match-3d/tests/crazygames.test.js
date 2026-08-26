@@ -97,7 +97,6 @@ return scope.CrazySDK.init({
   scope.CrazySDK.gameplayStart();
   assert.strictEqual(started, 1);
   assert.strictEqual(settingsListeners.length, 1, "mute listener is attached after init");
-  assert.strictEqual(mutes[0], false);
   assert.strictEqual(scope.CrazySDK.isAudioMuted(), false);
 
   gameObj.settings.muteAudio = true;
