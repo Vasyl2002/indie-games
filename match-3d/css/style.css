@@ -269,9 +269,10 @@ body {
 
 .goals {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  padding: 6px 12px 12px;
-  overflow-x: auto;
+  padding: 10px 12px 14px;
+  overflow: visible;
 }
 .goal {
   width: 72px;
@@ -286,8 +287,8 @@ body {
   justify-content: flex-start;
   gap: 4px;
   box-shadow: 0 4px 0 #b7bcc8;
-  overflow: hidden;
-  padding: 8px 6px 8px;
+  overflow: visible;
+  padding: 10px 6px 8px;
 }
 .goal .count {
   position: relative;
