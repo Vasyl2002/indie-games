@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#14082e" />
+    <title>Magic Sort</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="icon" href="promo/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" sizes="192x192" href="promo/icon-192.png" />
+    <link rel="apple-touch-icon" href="promo/icon-180.png" />
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+  </head>
+  <body>
+    <div id="stars"></div>
+    <div class="orb a"></div>
+    <div class="orb b"></div>
+
+    <div class="top-dock">
+      <div class="lang-dock" role="group" aria-label="Language">
+        <button id="btn-lang-en" class="lang-btn" type="button" data-lang="en">EN</button>
+        <button id="btn-lang-ru" class="lang-btn" type="button" data-lang="ru">RU</button>
+      </div>
+      <div class="audio-dock" role="group" aria-label="Sound">
+        <button id="btn-music" class="audio-btn" type="button" aria-pressed="true">♪ Music</button>
+        <button id="btn-sfx" class="audio-btn" type="button" aria-pressed="true">🔊 Sounds</button>
+      </div>
+    </div>
+
+    <div class="app">
+      <section id="screen-menu" class="screen">
+        <div class="brand">
+          <p data-i18n="brandTag">Bright color sorter</p>
+          <h1>
+            <span class="magic">Magic</span>
+            <span class="sort">Sort</span>
+          </h1>
+        </div>
+        <p class="lead" data-i18n="lead">
+          Pour neon colors between flasks until each one is a single color. 16 levels from easy to expert. Every level lasts 1:30.
+        </p>
+        <div id="howto" class="howto hidden" data-i18n="howto">
+          Tap a flask with liquid, then tap another. You can pour only onto the same color or into an empty flask. The whole top run of one color moves at once. Finish the puzzle before the timer ends.
+        </div>
+        <div class="menu-actions">
+          <button id="btn-play" class="btn" type="button" data-i18n="play">Play</button>
+          <button id="btn-howto" class="btn secondary" type="button" data-i18n="howToPlay">How to play</button>
+        </div>
+      </section>
+
+      <section id="screen-levels" class="screen hidden">
+        <div class="screen-head">
+          <button id="btn-back" class="btn ghost" type="button" data-i18n="back">Back</button>
+          <h2 data-i18n="levelsTitle">Levels</h2>
+          <span></span>
+        </div>
+        <div id="level-grid"></div>
+      </section>
+
+      <section id="screen-game" class="screen hidden">
+        <header class="hud">
+          <div class="hud-block">
+            <span id="hud-level">Lv. 1</span>
+            <span id="hud-name">First Drops</span>
+            <span id="hud-diff" class="chip easy">Easy</span>
+          </div>
+          <div id="hud-time" class="timer">1:30</div>
+          <div class="hud-block right">
+            <span id="hud-moves">0</span>
+            <span data-i18n="moves">moves</span>
+          </div>
+        </header>
+        <div class="board-wrap">
+          <canvas id="board"></canvas>
+        </div>
+        <div class="toolbar">
+          <button id="btn-undo" class="btn ghost" type="button" data-i18n="undo">Undo</button>
+          <button id="btn-restart" class="btn secondary" type="button" data-i18n="restart">Restart</button>
+          <button id="btn-menu" class="btn ghost" type="button" data-i18n="menu">Menu</button>
+        </div>
+        <footer class="banner">
+          <p id="slogan">SORT WATER!</p>
+        </footer>
+      </section>
+    </div>
+
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <h3 id="overlay-title">Level complete!</h3>
+        <p id="overlay-detail"></p>
+        <div id="overlay-stars" class="stars"></div>
+        <div class="modal-actions">
+          <button id="btn-next" class="btn" type="button" data-i18n="next">Next</button>
+          <button id="btn-retry" class="btn secondary" type="button" data-i18n="retry">Retry</button>
+          <button id="btn-overlay-menu" class="btn ghost" type="button" data-i18n="toLevels">Levels</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/crazygames.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+</html>
