@@ -4,6 +4,10 @@ import {
   ENEMY_PUSH_FORCE,
   ENEMY_PUSH_MAX,
 } from '../entities/Enemy';
+import {
+  Projectile,
+  PROJECTILE_FIRE_INTERVAL_MS,
+} from '../entities/Projectile';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 40;
@@ -16,6 +20,7 @@ const KNOCKBACK_DECAY_PER_SECOND = 8;
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private enemies!: Phaser.Physics.Arcade.Group;
+  private projectiles!: Phaser.Physics.Arcade.Group;
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
     w: Phaser.Input.Keyboard.Key;
@@ -32,8 +37,10 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.drawArena(width, height);
+    this.physics.world.setBounds(0, 0, width, height);
     this.createPlayerTexture();
     Enemy.ensureTexture(this);
+    Projectile.ensureTexture(this);
 
     this.player = this.physics.add.sprite(width / 2, height / 2, 'player');
     this.player.setCollideWorldBounds(true);
@@ -43,11 +50,19 @@ export class GameScene extends Phaser.Scene {
     this.player.setDepth(100);
 
     this.enemies = this.physics.add.group();
+    this.projectiles = this.physics.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(
       this.player,
       this.enemies,
       this.onPlayerEnemyCollide,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.projectiles,
+      this.enemies,
+      this.onProjectileHitEnemy,
       undefined,
       this,
     );
@@ -65,7 +80,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.add
-      .text(width / 2, 24, 'WASD to move', {
+      .text(width / 2, 24, 'WASD to move · aim with mouse', {
         fontFamily: 'monospace',
         fontSize: '20px',
         color: '#e8eef7',
@@ -77,6 +92,14 @@ export class GameScene extends Phaser.Scene {
       delay: WAVE_INTERVAL_MS,
       loop: true,
       callback: this.spawnWave,
+      callbackScope: this,
+    });
+
+    this.fireProjectile();
+    this.time.addEvent({
+      delay: PROJECTILE_FIRE_INTERVAL_MS,
+      loop: true,
+      callback: this.fireProjectile,
       callbackScope: this,
     });
   }
@@ -128,6 +151,14 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private fireProjectile(): void {
+    const pointer = this.input.activePointer;
+    const projectile = new Projectile(this, this.player.x, this.player.y);
+    // worldX/worldY stay correct if the camera later pans or zooms.
+    projectile.fireAt(pointer.worldX, pointer.worldY);
+    this.projectiles.add(projectile);
+  }
+
   private spawnWave(): void {
     for (const point of this.getOffscreenWavePoints(WAVE_SIZE)) {
       this.enemies.add(new Enemy(this, point.x, point.y));
@@ -177,6 +208,18 @@ export class GameScene extends Phaser.Scene {
       this.playerKnockback.x += (dx / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.y += (dy / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.limit(ENEMY_PUSH_MAX);
+    };
+
+  private onProjectileHitEnemy: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
+    (projectileObj, enemyObj) => {
+      const projectile = projectileObj as Projectile;
+      const enemy = enemyObj as Enemy;
+      if (!projectile.active || !enemy.active) {
+        return;
+      }
+
+      projectile.destroy();
+      enemy.destroy();
     };
 
   private drawArena(width: number, height: number): void {
