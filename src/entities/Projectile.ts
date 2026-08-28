@@ -7,6 +7,9 @@ export const PROJECTILE_FIRE_INTERVAL_MS = 500;
 const PROJECTILE_TEXTURE_KEY = 'projectile';
 
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
+  private velocityX = 0;
+  private velocityY = 0;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, PROJECTILE_TEXTURE_KEY);
 
@@ -39,11 +42,14 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     const length = Math.hypot(dx, dy);
 
     if (length === 0) {
-      this.setVelocity(PROJECTILE_SPEED, 0);
-      return;
+      this.velocityX = PROJECTILE_SPEED;
+      this.velocityY = 0;
+    } else {
+      this.velocityX = (dx / length) * PROJECTILE_SPEED;
+      this.velocityY = (dy / length) * PROJECTILE_SPEED;
     }
 
-    this.setVelocity((dx / length) * PROJECTILE_SPEED, (dy / length) * PROJECTILE_SPEED);
+    this.setVelocity(this.velocityX, this.velocityY);
   }
 
   protected preUpdate(time: number, delta: number): void {
@@ -52,6 +58,8 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     if (!this.active) {
       return;
     }
+
+    this.setVelocity(this.velocityX, this.velocityY);
 
     const bounds = this.scene.physics.world.bounds;
     if (!bounds.contains(this.x, this.y)) {

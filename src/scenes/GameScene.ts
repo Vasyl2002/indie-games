@@ -20,7 +20,7 @@ const KNOCKBACK_DECAY_PER_SECOND = 8;
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private enemies!: Phaser.Physics.Arcade.Group;
-  private projectiles!: Phaser.Physics.Arcade.Group;
+  private projectiles!: Phaser.GameObjects.Group;
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
     w: Phaser.Input.Keyboard.Key;
@@ -50,7 +50,7 @@ export class GameScene extends Phaser.Scene {
     this.player.setDepth(100);
 
     this.enemies = this.physics.add.group();
-    this.projectiles = this.physics.add.group();
+    this.projectiles = this.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(
       this.player,
