@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 export const ENEMY_SIZE = 28;
 export const ENEMY_SPEED = 140;
-export const ENEMY_PUSH_FORCE = 48;
+export const ENEMY_PUSH_FORCE = 70;
 export const ENEMY_PUSH_MAX = 420;
 
 const ENEMY_TEXTURE_KEY = 'enemy';
@@ -19,6 +19,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setBounce(0.12);
     this.setMass(2);
     this.setPushable(true);
+    this.setDepth(1);
   }
 
   static ensureTexture(scene: Phaser.Scene): void {

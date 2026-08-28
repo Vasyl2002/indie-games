@@ -37,8 +37,10 @@ export class GameScene extends Phaser.Scene {
 
     this.player = this.physics.add.sprite(width / 2, height / 2, 'player');
     this.player.setCollideWorldBounds(true);
+    this.player.setCircle(PLAYER_SIZE / 2);
     this.player.setMass(1);
     this.player.setPushable(true);
+    this.player.setDepth(100);
 
     this.enemies = this.physics.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
