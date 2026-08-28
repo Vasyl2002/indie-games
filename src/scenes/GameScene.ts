@@ -152,11 +152,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fireProjectile(): void {
-    const pointer = this.input.activePointer;
+    const pointer = this.input.mousePointer ?? this.input.activePointer;
+    pointer.updateWorldPoint(this.cameras.main);
+
     const projectile = new Projectile(this, this.player.x, this.player.y);
-    // worldX/worldY stay correct if the camera later pans or zooms.
-    projectile.fireAt(pointer.worldX, pointer.worldY);
     this.projectiles.add(projectile);
+    projectile.fireAt(pointer.worldX, pointer.worldY);
   }
 
   private spawnWave(): void {
