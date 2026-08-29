@@ -534,6 +534,20 @@ export class GameScene extends Phaser.Scene {
     const border = this.add.graphics().setDepth(-9);
     border.lineStyle(6, 0x6d7b99, 1);
     border.strokeRect(3, 3, WORLD_WIDTH - 6, WORLD_HEIGHT - 6);
+
+    for (let gx = 500; gx < WORLD_WIDTH; gx += 1000) {
+      for (let gy = 500; gy < WORLD_HEIGHT; gy += 1000) {
+        this.add.circle(gx, gy, 48, 0x2e3a52, 0.55).setDepth(-8);
+        this.add
+          .text(gx, gy, `${gx},${gy}`, {
+            fontFamily: 'monospace',
+            fontSize: '16px',
+            color: '#8ea0bf',
+          })
+          .setOrigin(0.5)
+          .setDepth(-7);
+      }
+    }
   }
 
   private createPlayerTexture(): void {
