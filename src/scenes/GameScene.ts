@@ -15,6 +15,12 @@ import { type UpgradeId } from '../systems/upgrades';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 40;
+const PLAYER_MAX_HP = 100;
+const CONTACT_DAMAGE = 15;
+const IFRAME_MS = 1000;
+const HP_BAR_WIDTH = 42;
+const HP_BAR_HEIGHT = 6;
+const HP_BAR_OFFSET_Y = 30;
 const WAVE_SIZE = 5;
 const WAVE_INTERVAL_MS = 2000;
 const SPAWN_MARGIN = 36;
@@ -43,12 +49,18 @@ export class GameScene extends Phaser.Scene {
   private currentXp = 0;
   private playerLevel = 1;
   private levelingUp = false;
+  private gameOver = false;
+  private playerHp = PLAYER_MAX_HP;
+  private invulnerableUntil = 0;
+  private hpBarBg!: Phaser.GameObjects.Rectangle;
+  private hpBarFill!: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super('GameScene');
   }
 
   create(): void {
+    this.resetRunState();
     const { width, height } = this.scale;
 
     this.drawArena(width, height);
@@ -64,6 +76,15 @@ export class GameScene extends Phaser.Scene {
     this.player.setMass(1);
     this.player.setPushable(true);
     this.player.setDepth(100);
+
+    this.hpBarBg = this.add
+      .rectangle(this.player.x, this.player.y - HP_BAR_OFFSET_Y, HP_BAR_WIDTH + 2, HP_BAR_HEIGHT + 2, 0x1a1010)
+      .setDepth(101);
+    this.hpBarFill = this.add
+      .rectangle(this.player.x, this.player.y - HP_BAR_OFFSET_Y, HP_BAR_WIDTH, HP_BAR_HEIGHT, 0x4caf50)
+      .setOrigin(0, 0.5)
+      .setDepth(102);
+    this.updateHpBar();
 
     this.enemies = this.physics.add.group();
     this.projectiles = this.add.group();
@@ -123,8 +144,10 @@ export class GameScene extends Phaser.Scene {
     this.restartFireTimer();
 
     this.game.events.on(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
+    this.game.events.on(GameEvents.RestartRequested, this.restartRun, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
+      this.game.events.off(GameEvents.RestartRequested, this.restartRun, this);
     });
 
     this.scene.launch('UIScene');
@@ -142,6 +165,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.updatePlayerMovement(delta);
     this.updateEnemyChase();
+    this.syncHpBarPosition();
   }
 
   private updatePlayerMovement(delta: number): void {
@@ -187,7 +211,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fireProjectile(): void {
-    if (this.levelingUp) {
+    if (this.levelingUp || this.gameOver) {
       return;
     }
 
@@ -216,7 +240,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnWave(): void {
-    if (this.levelingUp) {
+    if (this.levelingUp || this.gameOver) {
       return;
     }
 
@@ -268,6 +292,7 @@ export class GameScene extends Phaser.Scene {
       this.playerKnockback.x += (dx / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.y += (dy / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.limit(ENEMY_PUSH_MAX);
+      this.takeDamage(CONTACT_DAMAGE);
     };
 
   private onProjectileHitEnemy: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
@@ -290,7 +315,7 @@ export class GameScene extends Phaser.Scene {
     orbObj,
   ) => {
     const orb = orbObj as ExperienceOrb;
-    if (!orb.active || this.levelingUp) {
+    if (!orb.active || this.levelingUp || this.gameOver) {
       return;
     }
 
@@ -312,7 +337,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startLevelUp(): void {
-    if (this.levelingUp) {
+    if (this.levelingUp || this.gameOver) {
       return;
     }
 
@@ -322,7 +347,91 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit(GameEvents.LevelUp);
   }
 
+  private takeDamage(amount: number): void {
+    if (this.gameOver || this.levelingUp || this.time.now < this.invulnerableUntil) {
+      return;
+    }
+
+    this.playerHp = Math.max(0, this.playerHp - amount);
+    this.invulnerableUntil = this.time.now + IFRAME_MS;
+    this.startIframeBlink();
+    this.updateHpBar();
+
+    if (this.playerHp <= 0) {
+      this.startGameOver();
+    }
+  }
+
+  private startIframeBlink(): void {
+    this.tweens.killTweensOf(this.player);
+    this.player.setAlpha(1);
+    this.tweens.add({
+      targets: this.player,
+      alpha: 0.25,
+      duration: 80,
+      yoyo: true,
+      repeat: Math.ceil(IFRAME_MS / 160) - 1,
+      onComplete: () => {
+        if (this.player.active) {
+          this.player.setAlpha(1);
+        }
+      },
+    });
+  }
+
+  private startGameOver(): void {
+    if (this.gameOver) {
+      return;
+    }
+
+    this.gameOver = true;
+    this.tweens.killTweensOf(this.player);
+    this.player.setAlpha(1);
+    this.player.setVelocity(0, 0);
+    this.scene.pause();
+    this.game.events.emit(GameEvents.GameOver);
+  }
+
+  private restartRun = (): void => {
+    this.scene.stop('UIScene');
+    this.scene.restart();
+  };
+
+  private resetRunState(): void {
+    this.stats = {
+      moveSpeed: PLAYER_SPEED,
+      fireIntervalMs: PROJECTILE_FIRE_INTERVAL_MS,
+      projectileScale: 1,
+      projectileSpeed: PROJECTILE_SPEED,
+    };
+    this.currentXp = 0;
+    this.playerLevel = 1;
+    this.levelingUp = false;
+    this.gameOver = false;
+    this.playerHp = PLAYER_MAX_HP;
+    this.invulnerableUntil = 0;
+    this.playerKnockback.set(0, 0);
+    this.fireTimer = undefined;
+  }
+
+  private syncHpBarPosition(): void {
+    const barY = this.player.y - HP_BAR_OFFSET_Y;
+    this.hpBarBg.setPosition(this.player.x, barY);
+    this.hpBarFill.setPosition(this.player.x - HP_BAR_WIDTH / 2, barY);
+  }
+
+  private updateHpBar(): void {
+    const ratio = Phaser.Math.Clamp(this.playerHp / PLAYER_MAX_HP, 0, 1);
+    this.hpBarFill.displayWidth = Math.max(ratio * HP_BAR_WIDTH, 0);
+    this.hpBarFill.setFillStyle(ratio > 0.35 ? 0x4caf50 : 0xe53935);
+    this.syncHpBarPosition();
+  }
+
   private onUpgradeSelected = (upgradeId: UpgradeId): void => {
+    if (this.gameOver) {
+      return;
+    }
+
     this.applyUpgrade(upgradeId);
     this.currentXp = 0;
     this.playerLevel += 1;

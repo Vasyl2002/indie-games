@@ -14,7 +14,9 @@ export class UIScene extends Phaser.Scene {
   private barFill!: Phaser.GameObjects.Rectangle;
   private xpLabel!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Container;
+  private gameOverOverlay!: Phaser.GameObjects.Container;
   private choosing = false;
+  private showingGameOver = false;
 
   constructor() {
     super('UIScene');
@@ -48,9 +50,11 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.overlay = this.add.container(0, 0).setVisible(false).setDepth(1000);
+    this.gameOverOverlay = this.add.container(0, 0).setVisible(false).setDepth(2000);
 
     this.game.events.on(GameEvents.XpChanged, this.onXpChanged, this);
     this.game.events.on(GameEvents.LevelUp, this.onLevelUp, this);
+    this.game.events.on(GameEvents.GameOver, this.onGameOver, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.unbindEvents, this);
 
     const gameScene = this.scene.get('GameScene');
@@ -62,6 +66,7 @@ export class UIScene extends Phaser.Scene {
   private unbindEvents(): void {
     this.game.events.off(GameEvents.XpChanged, this.onXpChanged, this);
     this.game.events.off(GameEvents.LevelUp, this.onLevelUp, this);
+    this.game.events.off(GameEvents.GameOver, this.onGameOver, this);
   }
 
   private onXpChanged = (snapshot: XpSnapshot): void => {
@@ -71,11 +76,19 @@ export class UIScene extends Phaser.Scene {
   };
 
   private onLevelUp = (): void => {
-    if (this.choosing) {
+    if (this.choosing || this.showingGameOver) {
       return;
     }
     this.choosing = true;
     this.showUpgradeCards(pickRandomUpgrades(3));
+  };
+
+  private onGameOver = (): void => {
+    this.showingGameOver = true;
+    this.choosing = false;
+    this.overlay.setVisible(false);
+    this.overlay.removeAll(true);
+    this.showGameOver();
   };
 
   private showUpgradeCards(upgrades: UpgradeDef[]): void {
@@ -160,5 +173,66 @@ export class UIScene extends Phaser.Scene {
     this.overlay.setVisible(false);
     this.overlay.removeAll(true);
     this.game.events.emit(GameEvents.UpgradeSelected, upgrade.id);
+  }
+
+  private showGameOver(): void {
+    this.gameOverOverlay.removeAll(true);
+
+    const { width, height } = this.scale;
+    const dim = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x05070c, 0.78)
+      .setInteractive();
+
+    const title = this.add
+      .text(width / 2, height / 2 - 70, 'GAME OVER', {
+        fontFamily: 'monospace',
+        fontSize: '64px',
+        color: '#ff4d4d',
+      })
+      .setOrigin(0.5);
+
+    const button = this.add
+      .rectangle(width / 2, height / 2 + 50, 260, 64, 0x121826, 0.98)
+      .setStrokeStyle(2, 0xffe14d)
+      .setInteractive({ useHandCursor: true });
+
+    const buttonLabel = this.add
+      .text(width / 2, height / 2 + 42, 'Restart', {
+        fontFamily: 'monospace',
+        fontSize: '28px',
+        color: '#ffe14d',
+      })
+      .setOrigin(0.5);
+
+    const buttonHint = this.add
+      .text(width / 2, height / 2 + 68, 'Перезапуск', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#9fb0c8',
+      })
+      .setOrigin(0.5);
+
+    button.on('pointerover', () => {
+      button.setFillStyle(0x1c2740, 1);
+      button.setStrokeStyle(3, 0xffffff);
+    });
+    button.on('pointerout', () => {
+      button.setFillStyle(0x121826, 0.98);
+      button.setStrokeStyle(2, 0xffe14d);
+    });
+    button.on('pointerdown', () => {
+      this.requestRestart();
+    });
+
+    this.gameOverOverlay.add([dim, title, button, buttonLabel, buttonHint]);
+    this.gameOverOverlay.setVisible(true);
+  }
+
+  private requestRestart(): void {
+    if (!this.showingGameOver) {
+      return;
+    }
+    this.showingGameOver = false;
+    this.game.events.emit(GameEvents.RestartRequested);
   }
 }
