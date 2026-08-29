@@ -127,7 +127,8 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
     });
 
-    this.time.delayedCall(0, () => this.emitXp());
+    this.scene.launch('UIScene');
+    this.emitXp();
   }
 
   getXpSnapshot(): XpSnapshot {
