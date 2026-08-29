@@ -9,14 +9,23 @@ const PROJECTILE_TEXTURE_KEY = 'projectile';
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   private velocityX = 0;
   private velocityY = 0;
+  private readonly moveSpeed: number;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    moveSpeed = PROJECTILE_SPEED,
+    scale = 1,
+  ) {
     super(scene, x, y, PROJECTILE_TEXTURE_KEY);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setCircle(PROJECTILE_SIZE / 2);
+    this.moveSpeed = moveSpeed;
+    this.setScale(scale);
+    this.setCircle((PROJECTILE_SIZE * scale) / 2);
     this.setDepth(80);
     this.setBounce(0);
     this.setPushable(false);
@@ -42,11 +51,11 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     const length = Math.hypot(dx, dy);
 
     if (length === 0) {
-      this.velocityX = PROJECTILE_SPEED;
+      this.velocityX = this.moveSpeed;
       this.velocityY = 0;
     } else {
-      this.velocityX = (dx / length) * PROJECTILE_SPEED;
-      this.velocityY = (dy / length) * PROJECTILE_SPEED;
+      this.velocityX = (dx / length) * this.moveSpeed;
+      this.velocityY = (dy / length) * this.moveSpeed;
     }
 
     this.setVelocity(this.velocityX, this.velocityY);

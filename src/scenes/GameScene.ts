@@ -4,10 +4,14 @@ import {
   ENEMY_PUSH_FORCE,
   ENEMY_PUSH_MAX,
 } from '../entities/Enemy';
+import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import {
   Projectile,
   PROJECTILE_FIRE_INTERVAL_MS,
+  PROJECTILE_SPEED,
 } from '../entities/Projectile';
+import { GameEvents, type XpSnapshot } from '../systems/events';
+import { type UpgradeId } from '../systems/upgrades';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 40;
@@ -21,6 +25,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private enemies!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.GameObjects.Group;
+  private orbs!: Phaser.Physics.Arcade.Group;
+  private fireTimer?: Phaser.Time.TimerEvent;
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
     w: Phaser.Input.Keyboard.Key;
@@ -28,6 +34,15 @@ export class GameScene extends Phaser.Scene {
     s: Phaser.Input.Keyboard.Key;
     d: Phaser.Input.Keyboard.Key;
   };
+  private stats = {
+    moveSpeed: PLAYER_SPEED,
+    fireIntervalMs: PROJECTILE_FIRE_INTERVAL_MS,
+    projectileScale: 1,
+    projectileSpeed: PROJECTILE_SPEED,
+  };
+  private currentXp = 0;
+  private playerLevel = 1;
+  private levelingUp = false;
 
   constructor() {
     super('GameScene');
@@ -41,6 +56,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayerTexture();
     Enemy.ensureTexture(this);
     Projectile.ensureTexture(this);
+    ExperienceOrb.ensureTexture(this);
 
     this.player = this.physics.add.sprite(width / 2, height / 2, 'player');
     this.player.setCollideWorldBounds(true);
@@ -51,6 +67,7 @@ export class GameScene extends Phaser.Scene {
 
     this.enemies = this.physics.add.group();
     this.projectiles = this.add.group();
+    this.orbs = this.physics.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(
       this.player,
@@ -63,6 +80,13 @@ export class GameScene extends Phaser.Scene {
       this.projectiles,
       this.enemies,
       this.onProjectileHitEnemy,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.player,
+      this.orbs,
+      this.onCollectOrb,
       undefined,
       this,
     );
@@ -80,9 +104,9 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.add
-      .text(width / 2, 24, 'WASD to move · aim with mouse', {
+      .text(width / 2, 50, 'WASD to move · aim with mouse', {
         fontFamily: 'monospace',
-        fontSize: '20px',
+        fontSize: '18px',
         color: '#e8eef7',
       })
       .setOrigin(0.5, 0);
@@ -96,12 +120,22 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.fireProjectile();
-    this.time.addEvent({
-      delay: PROJECTILE_FIRE_INTERVAL_MS,
-      loop: true,
-      callback: this.fireProjectile,
-      callbackScope: this,
+    this.restartFireTimer();
+
+    this.game.events.on(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
     });
+
+    this.time.delayedCall(0, () => this.emitXp());
+  }
+
+  getXpSnapshot(): XpSnapshot {
+    return {
+      current: this.currentXp,
+      max: XP_TO_LEVEL,
+      level: this.playerLevel,
+    };
   }
 
   update(_time: number, delta: number): void {
@@ -128,8 +162,8 @@ export class GameScene extends Phaser.Scene {
 
     if (vx !== 0 || vy !== 0) {
       const length = Math.hypot(vx, vy);
-      vx = (vx / length) * PLAYER_SPEED;
-      vy = (vy / length) * PLAYER_SPEED;
+      vx = (vx / length) * this.stats.moveSpeed;
+      vy = (vy / length) * this.stats.moveSpeed;
     }
 
     const decay = Math.exp(-KNOCKBACK_DECAY_PER_SECOND * (delta / 1000));
@@ -152,15 +186,39 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fireProjectile(): void {
+    if (this.levelingUp) {
+      return;
+    }
+
     const pointer = this.input.mousePointer ?? this.input.activePointer;
     pointer.updateWorldPoint(this.cameras.main);
 
-    const projectile = new Projectile(this, this.player.x, this.player.y);
+    const projectile = new Projectile(
+      this,
+      this.player.x,
+      this.player.y,
+      this.stats.projectileSpeed,
+      this.stats.projectileScale,
+    );
     this.projectiles.add(projectile);
     projectile.fireAt(pointer.worldX, pointer.worldY);
   }
 
+  private restartFireTimer(): void {
+    this.fireTimer?.remove(false);
+    this.fireTimer = this.time.addEvent({
+      delay: this.stats.fireIntervalMs,
+      loop: true,
+      callback: this.fireProjectile,
+      callbackScope: this,
+    });
+  }
+
   private spawnWave(): void {
+    if (this.levelingUp) {
+      return;
+    }
+
     for (const point of this.getOffscreenWavePoints(WAVE_SIZE)) {
       this.enemies.add(new Enemy(this, point.x, point.y));
     }
@@ -219,9 +277,82 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
+      const dropX = enemy.x;
+      const dropY = enemy.y;
       projectile.destroy();
       enemy.destroy();
+      this.orbs.add(new ExperienceOrb(this, dropX, dropY));
     };
+
+  private onCollectOrb: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    _playerObj,
+    orbObj,
+  ) => {
+    const orb = orbObj as ExperienceOrb;
+    if (!orb.active || this.levelingUp) {
+      return;
+    }
+
+    const value = orb.value ?? XP_ORB_VALUE;
+    orb.destroy();
+    this.addExperience(value);
+  };
+
+  private addExperience(amount: number): void {
+    this.currentXp += amount;
+    if (this.currentXp >= XP_TO_LEVEL) {
+      this.currentXp = XP_TO_LEVEL;
+      this.emitXp();
+      this.startLevelUp();
+      return;
+    }
+
+    this.emitXp();
+  }
+
+  private startLevelUp(): void {
+    if (this.levelingUp) {
+      return;
+    }
+
+    this.levelingUp = true;
+    this.player.setVelocity(0, 0);
+    this.scene.pause();
+    this.game.events.emit(GameEvents.LevelUp);
+  }
+
+  private onUpgradeSelected = (upgradeId: UpgradeId): void => {
+    this.applyUpgrade(upgradeId);
+    this.currentXp = 0;
+    this.playerLevel += 1;
+    this.levelingUp = false;
+    this.emitXp();
+    this.scene.resume('GameScene');
+    this.restartFireTimer();
+  };
+
+  private applyUpgrade(upgradeId: UpgradeId): void {
+    switch (upgradeId) {
+      case 'fire-rate':
+        this.stats.fireIntervalMs = Math.max(120, this.stats.fireIntervalMs * 0.8);
+        break;
+      case 'move-speed':
+        this.stats.moveSpeed *= 1.18;
+        break;
+      case 'projectile-size':
+        this.stats.projectileScale *= 1.25;
+        break;
+      case 'projectile-speed':
+        this.stats.projectileSpeed *= 1.2;
+        break;
+      default:
+        break;
+    }
+  }
+
+  private emitXp(): void {
+    this.game.events.emit(GameEvents.XpChanged, this.getXpSnapshot());
+  }
 
   private drawArena(width: number, height: number): void {
     const grid = this.add.graphics();
