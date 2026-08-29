@@ -150,6 +150,7 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off(GameEvents.RestartRequested, this.restartRun, this);
     });
 
+    this.scene.stop('UIScene');
     this.scene.launch('UIScene');
     this.emitXp();
   }
@@ -394,7 +395,7 @@ export class GameScene extends Phaser.Scene {
 
   private restartRun = (): void => {
     this.scene.stop('UIScene');
-    this.scene.restart();
+    this.scene.start('GameScene');
   };
 
   private resetRunState(): void {
