@@ -261,44 +261,18 @@ export class GameScene extends Phaser.Scene {
     const kinds: TowerKind[] = ['archer', 'bomb', 'archer', 'bomb', 'archer'];
     Phaser.Utils.Array.Shuffle(kinds);
 
-    const placed: Phaser.Math.Vector2[] = [];
-    const margin = 180;
-    const minFromPlayer = 620;
-    const minBetween = 280;
+    const regions = [
+      { minX: 220, maxX: 900, minY: 220, maxY: 900 },
+      { minX: 2100, maxX: 2780, minY: 220, maxY: 900 },
+      { minX: 220, maxX: 900, minY: 2100, maxY: 2780 },
+      { minX: 2100, maxX: 2780, minY: 2100, maxY: 2780 },
+      { minX: 1200, maxX: 1800, minY: 220, maxY: 820 },
+    ];
 
     for (let i = 0; i < TOWER_COUNT; i += 1) {
-      let x = WORLD_WIDTH / 2;
-      let y = WORLD_HEIGHT / 2;
-      let accepted = false;
-
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        x = Phaser.Math.Between(margin, WORLD_WIDTH - margin);
-        y = Phaser.Math.Between(margin, WORLD_HEIGHT - margin);
-        const farFromPlayer =
-          Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) >= minFromPlayer;
-        const farFromTowers = placed.every(
-          (point) => Phaser.Math.Distance.Between(x, y, point.x, point.y) >= minBetween,
-        );
-        if (farFromPlayer && farFromTowers) {
-          accepted = true;
-          break;
-        }
-      }
-
-      if (!accepted) {
-        x = Phaser.Math.Clamp(
-          this.player.x + (i % 2 === 0 ? minFromPlayer : -minFromPlayer),
-          margin,
-          WORLD_WIDTH - margin,
-        );
-        y = Phaser.Math.Clamp(
-          this.player.y + (i < 2 ? -minFromPlayer : minFromPlayer),
-          margin,
-          WORLD_HEIGHT - margin,
-        );
-      }
-
-      placed.push(new Phaser.Math.Vector2(x, y));
+      const region = regions[i] ?? regions[0];
+      const x = Phaser.Math.Between(region.minX, region.maxX);
+      const y = Phaser.Math.Between(region.minY, region.maxY);
       const tower = new Tower(this, x, y, kinds[i] ?? 'archer', (shot) => {
         this.towerShots.add(shot);
       });
