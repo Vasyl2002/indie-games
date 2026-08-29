@@ -10,6 +10,13 @@ import {
   PROJECTILE_FIRE_INTERVAL_MS,
   PROJECTILE_SPEED,
 } from '../entities/Projectile';
+import {
+  Tower,
+  TOWER_COUNT,
+  TOWER_SHOT_DAMAGE,
+  type TowerKind,
+} from '../entities/Tower';
+import { TowerProjectile } from '../entities/TowerProjectile';
 import { GameEvents, type XpSnapshot } from '../systems/events';
 import { type UpgradeId } from '../systems/upgrades';
 
@@ -34,6 +41,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private enemies!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.GameObjects.Group;
+  private towers!: Phaser.Physics.Arcade.StaticGroup;
+  private towerShots!: Phaser.GameObjects.Group;
   private orbs!: Phaser.Physics.Arcade.Group;
   private fireTimer?: Phaser.Time.TimerEvent;
   private playerKnockback = new Phaser.Math.Vector2();
@@ -73,6 +82,8 @@ export class GameScene extends Phaser.Scene {
     Enemy.ensureTexture(this);
     Projectile.ensureTexture(this);
     ExperienceOrb.ensureTexture(this);
+    Tower.ensureTextures(this);
+    TowerProjectile.ensureTextures(this);
 
     this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'player');
     this.player.setCollideWorldBounds(true);
@@ -92,8 +103,26 @@ export class GameScene extends Phaser.Scene {
 
     this.enemies = this.physics.add.group();
     this.projectiles = this.add.group();
+    this.towers = this.physics.add.staticGroup();
+    this.towerShots = this.add.group();
     this.orbs = this.physics.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
+    this.physics.add.collider(this.player, this.towers);
+    this.physics.add.collider(this.enemies, this.towers);
+    this.physics.add.overlap(
+      this.projectiles,
+      this.towers,
+      this.onPlayerShotHitTower,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.player,
+      this.towerShots,
+      this.onTowerShotHitPlayer,
+      undefined,
+      this,
+    );
     this.physics.add.collider(
       this.player,
       this.enemies,
@@ -143,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.centerOn(this.player.x, this.player.y);
     this.cameras.main.setRoundPixels(true);
 
+    this.placeTowers();
     this.spawnWave();
     this.time.addEvent({
       delay: WAVE_INTERVAL_MS,
@@ -177,6 +207,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.updatePlayerMovement(delta);
     this.updateEnemyChase();
+    this.updateTowers();
     this.syncHpBarPosition();
   }
 
@@ -210,6 +241,69 @@ export class GameScene extends Phaser.Scene {
       vx + this.playerKnockback.x,
       vy + this.playerKnockback.y,
     );
+  }
+
+  private updateTowers(): void {
+    if (this.levelingUp || this.gameOver) {
+      return;
+    }
+
+    const now = this.time.now;
+    for (const child of this.towers.getChildren()) {
+      const tower = child as Tower;
+      if (tower.active) {
+        tower.updateCombat(this.player, now);
+      }
+    }
+  }
+
+  private placeTowers(): void {
+    const kinds: TowerKind[] = ['archer', 'bomb', 'archer', 'bomb', 'archer'];
+    Phaser.Utils.Array.Shuffle(kinds);
+
+    const placed: Phaser.Math.Vector2[] = [];
+    const margin = 180;
+    const minFromPlayer = 620;
+    const minBetween = 280;
+
+    for (let i = 0; i < TOWER_COUNT; i += 1) {
+      let x = WORLD_WIDTH / 2;
+      let y = WORLD_HEIGHT / 2;
+      let accepted = false;
+
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        x = Phaser.Math.Between(margin, WORLD_WIDTH - margin);
+        y = Phaser.Math.Between(margin, WORLD_HEIGHT - margin);
+        const farFromPlayer =
+          Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) >= minFromPlayer;
+        const farFromTowers = placed.every(
+          (point) => Phaser.Math.Distance.Between(x, y, point.x, point.y) >= minBetween,
+        );
+        if (farFromPlayer && farFromTowers) {
+          accepted = true;
+          break;
+        }
+      }
+
+      if (!accepted) {
+        x = Phaser.Math.Clamp(
+          this.player.x + (i % 2 === 0 ? minFromPlayer : -minFromPlayer),
+          margin,
+          WORLD_WIDTH - margin,
+        );
+        y = Phaser.Math.Clamp(
+          this.player.y + (i < 2 ? -minFromPlayer : minFromPlayer),
+          margin,
+          WORLD_HEIGHT - margin,
+        );
+      }
+
+      placed.push(new Phaser.Math.Vector2(x, y));
+      const tower = new Tower(this, x, y, kinds[i] ?? 'archer', (shot) => {
+        this.towerShots.add(shot);
+      });
+      this.towers.add(tower);
+    }
   }
 
   private updateEnemyChase(): void {
@@ -334,6 +428,27 @@ export class GameScene extends Phaser.Scene {
       this.playerKnockback.limit(ENEMY_PUSH_MAX);
       this.takeDamage(CONTACT_DAMAGE);
     };
+
+  private onPlayerShotHitTower: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
+    (projectileObj) => {
+      const projectile = projectileObj as Projectile;
+      if (projectile.active) {
+        projectile.destroy();
+      }
+    };
+
+  private onTowerShotHitPlayer: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    _playerObj,
+    shotObj,
+  ) => {
+    const shot = shotObj as TowerProjectile;
+    if (!shot.active || this.gameOver || this.levelingUp) {
+      return;
+    }
+
+    shot.destroy();
+    this.takeDamage(TOWER_SHOT_DAMAGE);
+  };
 
   private onProjectileHitEnemy: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
     (projectileObj, enemyObj) => {
