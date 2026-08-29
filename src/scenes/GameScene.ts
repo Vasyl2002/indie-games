@@ -21,10 +21,13 @@ const IFRAME_MS = 1000;
 const HP_BAR_WIDTH = 42;
 const HP_BAR_HEIGHT = 6;
 const HP_BAR_OFFSET_Y = 30;
+const WORLD_WIDTH = 3000;
+const WORLD_HEIGHT = 3000;
+const GROUND_TILE_SIZE = 96;
 const WAVE_SIZE = 5;
 const WAVE_INTERVAL_MS = 2000;
-const SPAWN_MARGIN = 36;
-const SPAWN_SPACING = 46;
+const SPAWN_MARGIN = 72;
+const SPAWN_SPACING = 52;
 const KNOCKBACK_DECAY_PER_SECOND = 8;
 
 export class GameScene extends Phaser.Scene {
@@ -61,16 +64,17 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.resetRunState();
-    const { width, height } = this.scale;
+    const { width } = this.scale;
 
-    this.drawArena(width, height);
-    this.physics.world.setBounds(0, 0, width, height);
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.createGroundTexture();
+    this.drawWorldGround();
     this.createPlayerTexture();
     Enemy.ensureTexture(this);
     Projectile.ensureTexture(this);
     ExperienceOrb.ensureTexture(this);
 
-    this.player = this.physics.add.sprite(width / 2, height / 2, 'player');
+    this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'player');
     this.player.setCollideWorldBounds(true);
     this.player.setCircle(PLAYER_SIZE / 2);
     this.player.setMass(1);
@@ -130,7 +134,14 @@ export class GameScene extends Phaser.Scene {
         fontSize: '18px',
         color: '#e8eef7',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(200);
+
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.cameras.main.startFollow(this.player, true, 1, 1);
+    this.cameras.main.centerOn(this.player.x, this.player.y);
+    this.cameras.main.setRoundPixels(true);
 
     this.spawnWave();
     this.time.addEvent({
@@ -253,30 +264,58 @@ export class GameScene extends Phaser.Scene {
   private getOffscreenWavePoints(
     count: number,
   ): Phaser.Types.Math.Vector2Like[] {
-    const { width, height } = this.scale;
-    const side = Phaser.Math.Between(0, 3);
-    const originX = width / 2;
-    const originY = height / 2;
+    const view = this.cameras.main.worldView;
+    const world = this.physics.world.bounds;
     const startOffset = -((count - 1) / 2) * SPAWN_SPACING;
     const points: Phaser.Types.Math.Vector2Like[] = [];
 
+    const viableSides: number[] = [];
+    if (view.y - SPAWN_MARGIN > world.y) {
+      viableSides.push(0);
+    }
+    if (view.right + SPAWN_MARGIN < world.right) {
+      viableSides.push(1);
+    }
+    if (view.bottom + SPAWN_MARGIN < world.bottom) {
+      viableSides.push(2);
+    }
+    if (view.x - SPAWN_MARGIN > world.x) {
+      viableSides.push(3);
+    }
+
+    const side =
+      viableSides.length > 0
+        ? Phaser.Utils.Array.GetRandom(viableSides)
+        : Phaser.Math.Between(0, 3);
+
     for (let i = 0; i < count; i += 1) {
       const along = startOffset + i * SPAWN_SPACING;
+      let x = view.centerX;
+      let y = view.centerY;
 
       switch (side) {
         case 0:
-          points.push({ x: originX + along, y: -SPAWN_MARGIN });
+          x = view.centerX + along;
+          y = view.y - SPAWN_MARGIN;
           break;
         case 1:
-          points.push({ x: width + SPAWN_MARGIN, y: originY + along });
+          x = view.right + SPAWN_MARGIN;
+          y = view.centerY + along;
           break;
         case 2:
-          points.push({ x: originX + along, y: height + SPAWN_MARGIN });
+          x = view.centerX + along;
+          y = view.bottom + SPAWN_MARGIN;
           break;
         default:
-          points.push({ x: -SPAWN_MARGIN, y: originY + along });
+          x = view.x - SPAWN_MARGIN;
+          y = view.centerY + along;
           break;
       }
+
+      points.push({
+        x: Phaser.Math.Clamp(x, world.x + 16, world.right - 16),
+        y: Phaser.Math.Clamp(y, world.y + 16, world.bottom - 16),
+      });
     }
 
     return points;
@@ -465,17 +504,36 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit(GameEvents.XpChanged, this.getXpSnapshot());
   }
 
-  private drawArena(width: number, height: number): void {
-    const grid = this.add.graphics();
-    grid.lineStyle(1, 0x2c3350, 0.7);
+  private createGroundTexture(): void {
+    if (this.textures.exists('ground-tile')) {
+      return;
+    }
 
-    const step = 64;
-    for (let x = 0; x <= width; x += step) {
-      grid.lineBetween(x, 0, x, height);
-    }
-    for (let y = 0; y <= height; y += step) {
-      grid.lineBetween(0, y, width, y);
-    }
+    const tile = GROUND_TILE_SIZE;
+    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+    graphics.fillStyle(0x141824, 1);
+    graphics.fillRect(0, 0, tile, tile);
+    graphics.fillStyle(0x1b2232, 1);
+    graphics.fillRect(3, 3, tile - 6, tile - 6);
+    graphics.lineStyle(2, 0x3a4560, 0.7);
+    graphics.strokeRect(1, 1, tile - 2, tile - 2);
+    graphics.fillStyle(0x2a3348, 0.9);
+    graphics.fillCircle(22, 28, 4);
+    graphics.fillCircle(68, 61, 3);
+    graphics.fillStyle(0x252d40, 0.8);
+    graphics.fillRect(44, 16, 10, 6);
+    graphics.generateTexture('ground-tile', tile, tile);
+    graphics.destroy();
+  }
+
+  private drawWorldGround(): void {
+    this.add
+      .tileSprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, 'ground-tile')
+      .setDepth(-10);
+
+    const border = this.add.graphics().setDepth(-9);
+    border.lineStyle(6, 0x6d7b99, 1);
+    border.strokeRect(3, 3, WORLD_WIDTH - 6, WORLD_HEIGHT - 6);
   }
 
   private createPlayerTexture(): void {
