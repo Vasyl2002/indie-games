@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AssetKey, fitDisplaySize } from '../systems/assets';
 
 export const ENEMY_SIZE = 28;
 export const ENEMY_SPEED = 140;
@@ -6,19 +7,17 @@ export const ENEMY_PUSH_FORCE = 70;
 export const ENEMY_PUSH_MAX = 420;
 export const ENEMY_MAX_HP = 40;
 
-const ENEMY_TEXTURE_KEY = 'enemy';
-
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   hp = ENEMY_MAX_HP;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, ENEMY_TEXTURE_KEY);
+    super(scene, x, y, AssetKey.enemy);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    const radius = ENEMY_SIZE / 2;
-    this.setCircle(radius);
+    fitDisplaySize(this, ENEMY_SIZE);
+    this.setCircle(this.width / 2);
     this.setBounce(0.12);
     this.setMass(2);
     this.setPushable(true);
@@ -38,20 +37,6 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
     });
     return false;
-  }
-
-  static ensureTexture(scene: Phaser.Scene): void {
-    if (scene.textures.exists(ENEMY_TEXTURE_KEY)) {
-      return;
-    }
-
-    const graphics = scene.make.graphics({ x: 0, y: 0 }, false);
-    graphics.fillStyle(0xe53935, 1);
-    graphics.fillCircle(ENEMY_SIZE / 2, ENEMY_SIZE / 2, ENEMY_SIZE / 2 - 1);
-    graphics.lineStyle(2, 0x8e1111, 1);
-    graphics.strokeCircle(ENEMY_SIZE / 2, ENEMY_SIZE / 2, ENEMY_SIZE / 2 - 1);
-    graphics.generateTexture(ENEMY_TEXTURE_KEY, ENEMY_SIZE, ENEMY_SIZE);
-    graphics.destroy();
   }
 
   chase(target: Phaser.Types.Math.Vector2Like): void {

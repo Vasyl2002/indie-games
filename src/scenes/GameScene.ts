@@ -7,15 +7,7 @@ import {
 } from '../entities/Enemy';
 import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { Loot } from '../entities/Loot';
-import {
-  Bush,
-  BUSH_COUNT,
-  GRASS_COUNT,
-  TREE_COUNT,
-  TREE_TRUNK_SIZE,
-  Tree,
-  paintGrassTufts,
-} from '../entities/Nature';
+import { Bush, BUSH_COUNT, TREE_COUNT, TREE_TRUNK_SIZE, Tree } from '../entities/Nature';
 import {
   Projectile,
   PROJECTILE_FIRE_INTERVAL_MS,
@@ -29,6 +21,7 @@ import {
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
+import { AssetKey, fitDisplaySize, preloadGameAssets } from '../systems/assets';
 import { GameEvents, type XpSnapshot } from '../systems/events';
 import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
 import {
@@ -60,7 +53,6 @@ const DASH_COOLDOWN_MS = 15000;
 const DASH_COOLDOWN_MIN_MS = 3000;
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 3000;
-const GROUND_TILE_SIZE = 96;
 const WAVE_SIZE = 5;
 const WAVE_INTERVAL_MS = 2000;
 const SPAWN_MARGIN = 72;
@@ -131,27 +123,25 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  preload(): void {
+    preloadGameAssets(this.load);
+  }
+
   create(): void {
     this.resetRunState();
     const { width } = this.scale;
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.createGroundTexture();
     this.drawWorldGround();
-    this.createPlayerTexture();
-    Enemy.ensureTexture(this);
     Projectile.ensureTexture(this);
     ExperienceOrb.ensureTexture(this);
     Tower.ensureTextures(this);
     TowerProjectile.ensureTextures(this);
-    Chest.ensureTexture(this);
-    Loot.ensureTextures(this);
-    Bush.ensureTexture(this);
-    Tree.ensureTexture(this);
 
-    this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'player');
+    this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, AssetKey.player);
     this.player.setCollideWorldBounds(true);
-    this.player.setCircle(PLAYER_SIZE / 2);
+    fitDisplaySize(this.player, PLAYER_SIZE);
+    this.player.setCircle(this.player.width / 2);
     this.player.setMass(1);
     this.player.setPushable(true);
     this.player.setDepth(100);
@@ -902,9 +892,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private placeNature(): void {
-    const grass = paintGrassTufts(this, GRASS_COUNT, WORLD_WIDTH, WORLD_HEIGHT);
-    this.worldDecor.push(grass);
-
     for (let i = 0; i < BUSH_COUNT; i += 1) {
       const bush = new Bush(
         this,
@@ -1235,31 +1222,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createGroundTexture(): void {
-    if (this.textures.exists('ground-tile')) {
-      return;
-    }
-
-    const tile = GROUND_TILE_SIZE;
-    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
-    graphics.fillStyle(0x141824, 1);
-    graphics.fillRect(0, 0, tile, tile);
-    graphics.fillStyle(0x1b2232, 1);
-    graphics.fillRect(3, 3, tile - 6, tile - 6);
-    graphics.lineStyle(2, 0x3a4560, 0.7);
-    graphics.strokeRect(1, 1, tile - 2, tile - 2);
-    graphics.fillStyle(0x2a3348, 0.9);
-    graphics.fillCircle(22, 28, 4);
-    graphics.fillCircle(68, 61, 3);
-    graphics.fillStyle(0x252d40, 0.8);
-    graphics.fillRect(44, 16, 10, 6);
-    graphics.generateTexture('ground-tile', tile, tile);
-    graphics.destroy();
-  }
-
   private drawWorldGround(): void {
     this.add
-      .tileSprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, 'ground-tile')
+      .tileSprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, AssetKey.bgGrass)
       .setDepth(-10);
 
     const border = this.add.graphics().setDepth(-9);
@@ -1281,17 +1246,5 @@ export class GameScene extends Phaser.Scene {
         this.worldDecor.push(mark, label);
       }
     }
-  }
-
-  private createPlayerTexture(): void {
-    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
-    graphics.fillStyle(0x3dd6c6, 1);
-    graphics.fillRoundedRect(2, 2, PLAYER_SIZE - 4, PLAYER_SIZE - 4, 8);
-    graphics.fillStyle(0x0b3d3a, 1);
-    graphics.fillCircle(PLAYER_SIZE / 2, PLAYER_SIZE / 2 - 2, 7);
-    graphics.lineStyle(3, 0x9ff5ea, 1);
-    graphics.strokeRoundedRect(2, 2, PLAYER_SIZE - 4, PLAYER_SIZE - 4, 8);
-    graphics.generateTexture('player', PLAYER_SIZE, PLAYER_SIZE);
-    graphics.destroy();
   }
 }
