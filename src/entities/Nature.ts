@@ -56,7 +56,6 @@ export class Tree extends Phaser.Physics.Arcade.Sprite {
 
     this.setImmovable(true);
     this.setPushable(false);
-    this.setCircle(TREE_TRUNK_SIZE / 2);
     this.refreshBody();
   }
 
