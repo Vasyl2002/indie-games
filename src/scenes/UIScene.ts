@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { GameEvents, type XpSnapshot } from '../systems/events';
+import { MINIMAP_SIZE, MINIMAP_TOP, minimapScreenX } from '../systems/minimap';
 import { pickRandomUpgrades, type UpgradeDef } from '../systems/upgrades';
 import { GameScene } from './GameScene';
 
@@ -49,6 +50,8 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0);
 
+    this.drawMinimapFrame(width);
+
     this.overlay = this.add.container(0, 0).setVisible(false).setDepth(1000);
     this.gameOverOverlay = this.add.container(0, 0).setVisible(false).setDepth(2000);
 
@@ -61,6 +64,16 @@ export class UIScene extends Phaser.Scene {
     if (gameScene instanceof GameScene) {
       this.onXpChanged(gameScene.getXpSnapshot());
     }
+  }
+
+  private drawMinimapFrame(width: number): void {
+    const x = minimapScreenX(width);
+    const y = MINIMAP_TOP;
+    const frame = this.add.graphics().setScrollFactor(0).setDepth(40);
+    frame.lineStyle(4, 0x0a0c12, 0.95);
+    frame.strokeRect(x - 3, y - 3, MINIMAP_SIZE + 6, MINIMAP_SIZE + 6);
+    frame.lineStyle(2, 0x8ea0bf, 1);
+    frame.strokeRect(x - 1, y - 1, MINIMAP_SIZE + 2, MINIMAP_SIZE + 2);
   }
 
   private unbindEvents(): void {

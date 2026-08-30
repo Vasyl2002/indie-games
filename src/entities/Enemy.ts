@@ -4,10 +4,13 @@ export const ENEMY_SIZE = 28;
 export const ENEMY_SPEED = 140;
 export const ENEMY_PUSH_FORCE = 70;
 export const ENEMY_PUSH_MAX = 420;
+export const ENEMY_MAX_HP = 40;
 
 const ENEMY_TEXTURE_KEY = 'enemy';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
+  hp = ENEMY_MAX_HP;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, ENEMY_TEXTURE_KEY);
 
@@ -20,6 +23,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setMass(2);
     this.setPushable(true);
     this.setDepth(1);
+  }
+
+  takeDamage(amount: number): boolean {
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      return true;
+    }
+
+    this.setTintFill(0xffffff);
+    this.scene.time.delayedCall(50, () => {
+      if (this.active) {
+        this.clearTint();
+      }
+    });
+    return false;
   }
 
   static ensureTexture(scene: Phaser.Scene): void {

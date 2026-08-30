@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
+import { Chest, CHEST_SIZE } from '../entities/Chest';
 import {
   Enemy,
   ENEMY_PUSH_FORCE,
   ENEMY_PUSH_MAX,
 } from '../entities/Enemy';
 import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
+import { Loot } from '../entities/Loot';
 import {
   Projectile,
   PROJECTILE_FIRE_INTERVAL_MS,
@@ -14,20 +16,38 @@ import {
   Tower,
   TOWER_COUNT,
   TOWER_SHOT_DAMAGE,
+  TOWER_SIZE,
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
 import { GameEvents, type XpSnapshot } from '../systems/events';
+import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
+import {
+  MINIMAP_CHEST_BLIP_R,
+  MINIMAP_PLAYER_BLIP_R,
+  MINIMAP_SIZE,
+  MINIMAP_TOP,
+  MINIMAP_TOWER_BLIP,
+  minimapScreenX,
+  minimapZoom,
+} from '../systems/minimap';
 import { type UpgradeId } from '../systems/upgrades';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 40;
 const PLAYER_MAX_HP = 100;
+const PLAYER_BASE_DAMAGE = 20;
 const CONTACT_DAMAGE = 15;
 const IFRAME_MS = 1000;
 const HP_BAR_WIDTH = 42;
 const HP_BAR_HEIGHT = 6;
 const HP_BAR_OFFSET_Y = 30;
+const DASH_BAR_WIDTH = 42;
+const DASH_BAR_HEIGHT = 4;
+const DASH_BAR_OFFSET_Y = 42;
+const DASH_DISTANCE = 200;
+const DASH_COOLDOWN_MS = 15000;
+const DASH_COOLDOWN_MIN_MS = 3000;
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 3000;
 const GROUND_TILE_SIZE = 96;
@@ -36,6 +56,14 @@ const WAVE_INTERVAL_MS = 2000;
 const SPAWN_MARGIN = 72;
 const SPAWN_SPACING = 52;
 const KNOCKBACK_DECAY_PER_SECOND = 8;
+const CHEST_RANDOM_COUNT = 5;
+const CHEST_NEAR_BOMB_COUNT = 5;
+const CHEST_NEAR_BOMB_MIN = 150;
+const CHEST_NEAR_BOMB_MAX = 200;
+const CHEST_EDGE_MARGIN = 48;
+const CHEST_CLEAR_TOWER = 88;
+const CHEST_CLEAR_CHEST = 40;
+const CHEST_CLEAR_PLAYER = 140;
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -44,6 +72,8 @@ export class GameScene extends Phaser.Scene {
   private towers!: Phaser.Physics.Arcade.StaticGroup;
   private towerShots!: Phaser.GameObjects.Group;
   private orbs!: Phaser.Physics.Arcade.Group;
+  private chests!: Phaser.Physics.Arcade.Group;
+  private loot!: Phaser.Physics.Arcade.Group;
   private fireTimer?: Phaser.Time.TimerEvent;
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
@@ -51,21 +81,33 @@ export class GameScene extends Phaser.Scene {
     a: Phaser.Input.Keyboard.Key;
     s: Phaser.Input.Keyboard.Key;
     d: Phaser.Input.Keyboard.Key;
+    space: Phaser.Input.Keyboard.Key;
   };
   private stats = {
     moveSpeed: PLAYER_SPEED,
     fireIntervalMs: PROJECTILE_FIRE_INTERVAL_MS,
     projectileScale: 1,
     projectileSpeed: PROJECTILE_SPEED,
+    damage: PLAYER_BASE_DAMAGE,
   };
   private currentXp = 0;
   private playerLevel = 1;
   private levelingUp = false;
   private gameOver = false;
   private playerHp = PLAYER_MAX_HP;
+  private playerMaxHp = PLAYER_MAX_HP;
   private invulnerableUntil = 0;
   private hpBarBg!: Phaser.GameObjects.Rectangle;
   private hpBarFill!: Phaser.GameObjects.Rectangle;
+  private dashBarBg!: Phaser.GameObjects.Rectangle;
+  private dashBarFill!: Phaser.GameObjects.Rectangle;
+  private dashReadyAt = 0;
+  private dashCooldownMs = DASH_COOLDOWN_MS;
+  private lastMoveDir = new Phaser.Math.Vector2(0, -1);
+  private minimap?: Phaser.Cameras.Scene2D.Camera;
+  private playerBlip!: Phaser.GameObjects.Arc;
+  private hudObjects: Phaser.GameObjects.GameObject[] = [];
+  private worldDecor: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('GameScene');
@@ -84,6 +126,8 @@ export class GameScene extends Phaser.Scene {
     ExperienceOrb.ensureTexture(this);
     Tower.ensureTextures(this);
     TowerProjectile.ensureTextures(this);
+    Chest.ensureTexture(this);
+    Loot.ensureTextures(this);
 
     this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'player');
     this.player.setCollideWorldBounds(true);
@@ -99,13 +143,35 @@ export class GameScene extends Phaser.Scene {
       .rectangle(this.player.x, this.player.y - HP_BAR_OFFSET_Y, HP_BAR_WIDTH, HP_BAR_HEIGHT, 0x4caf50)
       .setOrigin(0, 0.5)
       .setDepth(102);
+    this.dashBarBg = this.add
+      .rectangle(
+        this.player.x,
+        this.player.y - DASH_BAR_OFFSET_Y,
+        DASH_BAR_WIDTH + 2,
+        DASH_BAR_HEIGHT + 2,
+        0x101820,
+      )
+      .setDepth(101);
+    this.dashBarFill = this.add
+      .rectangle(
+        this.player.x,
+        this.player.y - DASH_BAR_OFFSET_Y,
+        DASH_BAR_WIDTH,
+        DASH_BAR_HEIGHT,
+        0x4dd0e1,
+      )
+      .setOrigin(0, 0.5)
+      .setDepth(102);
     this.updateHpBar();
+    this.updateDashBar();
 
     this.enemies = this.physics.add.group();
     this.projectiles = this.add.group();
     this.towers = this.physics.add.staticGroup();
     this.towerShots = this.add.group();
     this.orbs = this.physics.add.group();
+    this.chests = this.physics.add.group();
+    this.loot = this.physics.add.group();
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(this.player, this.towers);
     this.physics.add.collider(this.enemies, this.towers);
@@ -144,6 +210,20 @@ export class GameScene extends Phaser.Scene {
       undefined,
       this,
     );
+    this.physics.add.overlap(
+      this.player,
+      this.chests,
+      this.onOpenChest,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.player,
+      this.loot,
+      this.onCollectLoot,
+      undefined,
+      this,
+    );
 
     const keyboard = this.input.keyboard;
     if (!keyboard) {
@@ -155,10 +235,11 @@ export class GameScene extends Phaser.Scene {
       a: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       s: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
       d: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+      space: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
     };
 
-    this.add
-      .text(width / 2, 50, 'WASD to move · aim with mouse', {
+    const hint = this.add
+      .text(width / 2, 50, 'WASD — движение · Space — рывок · мышь — прицел', {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#e8eef7',
@@ -166,6 +247,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(200);
+    this.hudObjects.push(this.hpBarBg, this.hpBarFill, this.dashBarBg, this.dashBarFill, hint);
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 1, 1);
@@ -173,6 +255,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
 
     this.placeTowers();
+    this.spawnChests();
+    this.setupMinimap();
     this.spawnWave();
     this.time.addEvent({
       delay: WAVE_INTERVAL_MS,
@@ -206,9 +290,12 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.updatePlayerMovement(delta);
+    this.tryDash();
     this.updateEnemyChase();
     this.updateTowers();
-    this.syncHpBarPosition();
+    this.syncOverheadBars();
+    this.updateDashBar();
+    this.syncMinimapBlips();
   }
 
   private updatePlayerMovement(delta: number): void {
@@ -230,8 +317,9 @@ export class GameScene extends Phaser.Scene {
 
     if (vx !== 0 || vy !== 0) {
       const length = Math.hypot(vx, vy);
-      vx = (vx / length) * this.stats.moveSpeed;
-      vy = (vy / length) * this.stats.moveSpeed;
+      this.lastMoveDir.set(vx / length, vy / length);
+      vx = this.lastMoveDir.x * this.stats.moveSpeed;
+      vy = this.lastMoveDir.y * this.stats.moveSpeed;
     }
 
     const decay = Math.exp(-KNOCKBACK_DECAY_PER_SECOND * (delta / 1000));
@@ -275,9 +363,74 @@ export class GameScene extends Phaser.Scene {
       const y = Phaser.Math.Between(region.minY, region.maxY);
       const tower = new Tower(this, x, y, kinds[i] ?? 'archer', (shot) => {
         this.towerShots.add(shot);
+        this.hideFromMinimap(shot);
       });
       this.towers.add(tower);
     }
+  }
+
+  private tryDash(): void {
+    if (this.levelingUp || this.gameOver) {
+      return;
+    }
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.space)) {
+      return;
+    }
+    if (this.time.now < this.dashReadyAt) {
+      return;
+    }
+
+    const destX = Phaser.Math.Clamp(
+      this.player.x + this.lastMoveDir.x * DASH_DISTANCE,
+      PLAYER_SIZE,
+      WORLD_WIDTH - PLAYER_SIZE,
+    );
+    const destY = Phaser.Math.Clamp(
+      this.player.y + this.lastMoveDir.y * DASH_DISTANCE,
+      PLAYER_SIZE,
+      WORLD_HEIGHT - PLAYER_SIZE,
+    );
+
+    const landed = this.resolveDashLanding(destX, destY);
+    if (!landed) {
+      return;
+    }
+
+    this.player.setPosition(landed.x, landed.y);
+    this.dashReadyAt = this.time.now + this.dashCooldownMs;
+    this.updateDashBar();
+    this.syncOverheadBars();
+  }
+
+  private resolveDashLanding(
+    destX: number,
+    destY: number,
+  ): Phaser.Types.Math.Vector2Like | null {
+    if (!this.pointHitsTower(destX, destY)) {
+      return { x: destX, y: destY };
+    }
+
+    for (let step = 8; step >= 1; step -= 1) {
+      const t = step / 9;
+      const x = Phaser.Math.Linear(this.player.x, destX, t);
+      const y = Phaser.Math.Linear(this.player.y, destY, t);
+      if (!this.pointHitsTower(x, y)) {
+        return { x, y };
+      }
+    }
+
+    return null;
+  }
+
+  private pointHitsTower(x: number, y: number): boolean {
+    const clearance = TOWER_SIZE / 2 + PLAYER_SIZE / 2 - 4;
+    for (const child of this.towers.getChildren()) {
+      const tower = child as Tower;
+      if (Math.abs(tower.x - x) < clearance && Math.abs(tower.y - y) < clearance) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private updateEnemyChase(): void {
@@ -306,6 +459,7 @@ export class GameScene extends Phaser.Scene {
       this.stats.projectileScale,
     );
     this.projectiles.add(projectile);
+    this.hideFromMinimap(projectile);
     projectile.fireAt(pointer.worldX, pointer.worldY);
   }
 
@@ -325,7 +479,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     for (const point of this.getOffscreenWavePoints(WAVE_SIZE)) {
-      this.enemies.add(new Enemy(this, point.x, point.y));
+      const enemy = new Enemy(this, point.x, point.y);
+      this.enemies.add(enemy);
+      this.hideFromMinimap(enemy);
     }
   }
 
@@ -432,11 +588,17 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
+      projectile.destroy();
+      if (!enemy.takeDamage(this.stats.damage)) {
+        return;
+      }
+
       const dropX = enemy.x;
       const dropY = enemy.y;
-      projectile.destroy();
       enemy.destroy();
-      this.orbs.add(new ExperienceOrb(this, dropX, dropY));
+      const orb = new ExperienceOrb(this, dropX, dropY);
+      this.orbs.add(orb);
+      this.hideFromMinimap(orb);
     };
 
   private onCollectOrb: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
@@ -527,33 +689,62 @@ export class GameScene extends Phaser.Scene {
   };
 
   private resetRunState(): void {
+    this.clearExtraCameras();
     this.stats = {
       moveSpeed: PLAYER_SPEED,
       fireIntervalMs: PROJECTILE_FIRE_INTERVAL_MS,
       projectileScale: 1,
       projectileSpeed: PROJECTILE_SPEED,
+      damage: PLAYER_BASE_DAMAGE,
     };
     this.currentXp = 0;
     this.playerLevel = 1;
     this.levelingUp = false;
     this.gameOver = false;
+    this.playerMaxHp = PLAYER_MAX_HP;
     this.playerHp = PLAYER_MAX_HP;
     this.invulnerableUntil = 0;
+    this.dashReadyAt = 0;
+    this.dashCooldownMs = DASH_COOLDOWN_MS;
+    this.lastMoveDir.set(0, -1);
     this.playerKnockback.set(0, 0);
     this.fireTimer = undefined;
+    this.minimap = undefined;
+    this.hudObjects = [];
+    this.worldDecor = [];
   }
 
-  private syncHpBarPosition(): void {
-    const barY = this.player.y - HP_BAR_OFFSET_Y;
-    this.hpBarBg.setPosition(this.player.x, barY);
-    this.hpBarFill.setPosition(this.player.x - HP_BAR_WIDTH / 2, barY);
+  private clearExtraCameras(): void {
+    for (const camera of [...this.cameras.cameras]) {
+      if (camera !== this.cameras.main) {
+        this.cameras.remove(camera);
+      }
+    }
+  }
+
+  private syncOverheadBars(): void {
+    const hpY = this.player.y - HP_BAR_OFFSET_Y;
+    const dashY = this.player.y - DASH_BAR_OFFSET_Y;
+    this.hpBarBg.setPosition(this.player.x, hpY);
+    this.hpBarFill.setPosition(this.player.x - HP_BAR_WIDTH / 2, hpY);
+    this.dashBarBg.setPosition(this.player.x, dashY);
+    this.dashBarFill.setPosition(this.player.x - DASH_BAR_WIDTH / 2, dashY);
   }
 
   private updateHpBar(): void {
-    const ratio = Phaser.Math.Clamp(this.playerHp / PLAYER_MAX_HP, 0, 1);
+    const ratio = Phaser.Math.Clamp(this.playerHp / this.playerMaxHp, 0, 1);
     this.hpBarFill.displayWidth = Math.max(ratio * HP_BAR_WIDTH, 0);
     this.hpBarFill.setFillStyle(ratio > 0.35 ? 0x4caf50 : 0xe53935);
-    this.syncHpBarPosition();
+    this.syncOverheadBars();
+  }
+
+  private updateDashBar(): void {
+    const remaining = Math.max(0, this.dashReadyAt - this.time.now);
+    const ratio =
+      remaining <= 0 ? 1 : Phaser.Math.Clamp(1 - remaining / this.dashCooldownMs, 0, 1);
+    this.dashBarFill.displayWidth = Math.max(ratio * DASH_BAR_WIDTH, remaining <= 0 ? DASH_BAR_WIDTH : 2);
+    this.dashBarFill.setFillStyle(remaining <= 0 ? 0x4dd0e1 : 0x0277bd);
+    this.syncOverheadBars();
   }
 
   private onUpgradeSelected = (upgradeId: UpgradeId): void => {
@@ -593,6 +784,256 @@ export class GameScene extends Phaser.Scene {
     this.game.events.emit(GameEvents.XpChanged, this.getXpSnapshot());
   }
 
+  private spawnChests(): void {
+    const bombTowers = this.towers
+      .getChildren()
+      .filter((child): child is Tower => child instanceof Tower && child.kind === 'bomb');
+
+    for (let i = 0; i < CHEST_NEAR_BOMB_COUNT; i += 1) {
+      const tower = bombTowers[i % bombTowers.length];
+      const point = tower
+        ? this.pickPointNear(tower.x, tower.y, CHEST_NEAR_BOMB_MIN, CHEST_NEAR_BOMB_MAX)
+        : this.pickRandomChestPoint();
+      this.addChest(point.x, point.y);
+    }
+
+    for (let i = 0; i < CHEST_RANDOM_COUNT; i += 1) {
+      const point = this.pickRandomChestPoint();
+      this.addChest(point.x, point.y);
+    }
+  }
+
+  private addChest(x: number, y: number): Chest {
+    const chest = new Chest(this, x, y);
+    const blip = this.add
+      .circle(x, y, MINIMAP_CHEST_BLIP_R, 0xffc107, 1)
+      .setDepth(1000)
+      .setData('minimapBlip', true);
+    chest.setData('blip', blip);
+    this.chests.add(chest);
+    this.cameras.main.ignore(blip);
+    return chest;
+  }
+
+  private pickRandomChestPoint(): Phaser.Types.Math.Vector2Like {
+    return this.pickClearChestPoint(() => ({
+      x: Phaser.Math.Between(CHEST_EDGE_MARGIN, WORLD_WIDTH - CHEST_EDGE_MARGIN),
+      y: Phaser.Math.Between(CHEST_EDGE_MARGIN, WORLD_HEIGHT - CHEST_EDGE_MARGIN),
+    }));
+  }
+
+  private pickPointNear(
+    originX: number,
+    originY: number,
+    minRadius: number,
+    maxRadius: number,
+  ): Phaser.Types.Math.Vector2Like {
+    return this.pickClearChestPoint(() => {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const radius = Phaser.Math.FloatBetween(minRadius, maxRadius);
+      return {
+        x: Phaser.Math.Clamp(
+          originX + Math.cos(angle) * radius,
+          CHEST_EDGE_MARGIN,
+          WORLD_WIDTH - CHEST_EDGE_MARGIN,
+        ),
+        y: Phaser.Math.Clamp(
+          originY + Math.sin(angle) * radius,
+          CHEST_EDGE_MARGIN,
+          WORLD_HEIGHT - CHEST_EDGE_MARGIN,
+        ),
+      };
+    });
+  }
+
+  private pickClearChestPoint(
+    sample: () => Phaser.Types.Math.Vector2Like,
+  ): Phaser.Types.Math.Vector2Like {
+    let best = sample();
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const point = sample();
+      if (this.isChestPointClear(point.x, point.y)) {
+        return point;
+      }
+      best = point;
+    }
+    return best;
+  }
+
+  private isChestPointClear(x: number, y: number): boolean {
+    if (Phaser.Math.Distance.Between(x, y, WORLD_WIDTH / 2, WORLD_HEIGHT / 2) < CHEST_CLEAR_PLAYER) {
+      return false;
+    }
+
+    for (const child of this.towers.getChildren()) {
+      const tower = child as Tower;
+      if (Phaser.Math.Distance.Between(x, y, tower.x, tower.y) < CHEST_CLEAR_TOWER) {
+        return false;
+      }
+    }
+
+    for (const child of this.chests.getChildren()) {
+      const chest = child as Chest;
+      if (Phaser.Math.Distance.Between(x, y, chest.x, chest.y) < CHEST_CLEAR_CHEST + CHEST_SIZE) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private onOpenChest: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    _playerObj,
+    chestObj,
+  ) => {
+    const chest = chestObj as Chest;
+    if (!chest.active || this.gameOver || this.levelingUp) {
+      return;
+    }
+
+    const dropX = chest.x;
+    const dropY = chest.y;
+    const blip = chest.getData('blip') as Phaser.GameObjects.Arc | undefined;
+    blip?.destroy();
+    chest.destroy();
+
+    const loot = new Loot(this, dropX, dropY, Loot.randomKind());
+    this.hideFromMinimap(loot);
+    loot.setScale(0.4);
+    this.tweens.add({
+      targets: loot,
+      scale: 1,
+      duration: 180,
+      ease: 'Back.Out',
+      onComplete: () => {
+        if (loot.active) {
+          this.loot.add(loot);
+        }
+      },
+    });
+  };
+
+  private onCollectLoot: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    _playerObj,
+    lootObj,
+  ) => {
+    const loot = lootObj as Loot;
+    if (!loot.active || this.gameOver || this.levelingUp) {
+      return;
+    }
+
+    loot.destroy();
+    const buff = pickRandomLootBuff();
+    this.applyLootBuff(buff.id);
+    this.spawnFloatingText(this.player.x, this.player.y - 52, buff.text);
+  };
+
+  private applyLootBuff(id: LootBuffId): void {
+    switch (id) {
+      case 'run-speed':
+        this.stats.moveSpeed *= 1.05;
+        break;
+      case 'damage':
+        this.stats.damage *= 1.05;
+        break;
+      case 'max-hp':
+        this.playerMaxHp += 15;
+        this.playerHp = Math.min(this.playerMaxHp, this.playerHp + 15);
+        this.updateHpBar();
+        break;
+      case 'dash-cooldown':
+        this.dashCooldownMs = Math.max(DASH_COOLDOWN_MIN_MS, this.dashCooldownMs - 1000);
+        this.dashReadyAt = Math.min(this.dashReadyAt, this.time.now + this.dashCooldownMs);
+        this.updateDashBar();
+        break;
+      default:
+        break;
+    }
+  }
+
+  private spawnFloatingText(x: number, y: number, message: string): void {
+    const label = this.add
+      .text(x, y, message, {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffe14d',
+        stroke: '#1a1408',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(400);
+    this.hideFromMinimap(label);
+    this.tweens.add({
+      targets: label,
+      y: y - 48,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        label.destroy();
+      },
+    });
+  }
+
+  private setupMinimap(): void {
+    const { width } = this.scale;
+    const camera = this.cameras.add(
+      minimapScreenX(width),
+      MINIMAP_TOP,
+      MINIMAP_SIZE,
+      MINIMAP_SIZE,
+      false,
+      'minimap',
+    );
+    camera.setZoom(minimapZoom());
+    camera.setBackgroundColor(0x0a0e14);
+    camera.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    camera.startFollow(this.player, true, 1, 1);
+    camera.setRoundPixels(true);
+    this.minimap = camera;
+
+    this.hideFromMinimap(this.hudObjects);
+    this.hideFromMinimap(this.worldDecor);
+    this.hideFromMinimap(this.player);
+    this.hideFromMinimap(this.enemies);
+    this.hideFromMinimap(this.projectiles);
+    this.hideFromMinimap(this.towerShots);
+    this.hideFromMinimap(this.orbs);
+    this.hideFromMinimap(this.loot);
+    this.hideFromMinimap(this.chests);
+    this.hideFromMinimap(this.towers);
+
+    this.playerBlip = this.add
+      .circle(this.player.x, this.player.y, MINIMAP_PLAYER_BLIP_R, 0x4caf50, 1)
+      .setDepth(1001)
+      .setData('minimapBlip', true);
+    this.cameras.main.ignore(this.playerBlip);
+
+    for (const child of this.towers.getChildren()) {
+      const tower = child as Tower;
+      const blip = this.add
+        .rectangle(tower.x, tower.y, MINIMAP_TOWER_BLIP, MINIMAP_TOWER_BLIP, 0xe53935, 1)
+        .setDepth(1000)
+        .setData('minimapBlip', true);
+      this.cameras.main.ignore(blip);
+    }
+  }
+
+  private hideFromMinimap(
+    target:
+      | Phaser.GameObjects.GameObject
+      | Phaser.GameObjects.GameObject[]
+      | Phaser.GameObjects.Group,
+  ): void {
+    this.minimap?.ignore(target);
+  }
+
+  private syncMinimapBlips(): void {
+    if (this.playerBlip?.active) {
+      this.playerBlip.setPosition(this.player.x, this.player.y);
+    }
+  }
+
   private createGroundTexture(): void {
     if (this.textures.exists('ground-tile')) {
       return;
@@ -623,11 +1064,12 @@ export class GameScene extends Phaser.Scene {
     const border = this.add.graphics().setDepth(-9);
     border.lineStyle(6, 0x6d7b99, 1);
     border.strokeRect(3, 3, WORLD_WIDTH - 6, WORLD_HEIGHT - 6);
+    this.worldDecor.push(border);
 
     for (let gx = 500; gx < WORLD_WIDTH; gx += 1000) {
       for (let gy = 500; gy < WORLD_HEIGHT; gy += 1000) {
-        this.add.circle(gx, gy, 48, 0x2e3a52, 0.55).setDepth(-8);
-        this.add
+        const mark = this.add.circle(gx, gy, 48, 0x2e3a52, 0.55).setDepth(-8);
+        const label = this.add
           .text(gx, gy, `${gx},${gy}`, {
             fontFamily: 'monospace',
             fontSize: '16px',
@@ -635,6 +1077,7 @@ export class GameScene extends Phaser.Scene {
           })
           .setOrigin(0.5)
           .setDepth(-7);
+        this.worldDecor.push(mark, label);
       }
     }
   }
