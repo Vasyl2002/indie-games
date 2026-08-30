@@ -273,12 +273,17 @@ export class GameScene extends Phaser.Scene {
     this.placeTowers();
     this.spawnChests();
     this.setupMinimap();
-    this.spawnWave();
-    this.time.addEvent({
-      delay: WAVE_INTERVAL_MS,
-      loop: true,
-      callback: this.spawnWave,
-      callbackScope: this,
+    this.time.delayedCall(4500, () => {
+      if (this.gameOver || this.levelingUp) {
+        return;
+      }
+      this.spawnWave();
+      this.time.addEvent({
+        delay: WAVE_INTERVAL_MS,
+        loop: true,
+        callback: this.spawnWave,
+        callbackScope: this,
+      });
     });
 
     this.fireProjectile();
@@ -294,6 +299,30 @@ export class GameScene extends Phaser.Scene {
     this.scene.stop('UIScene');
     this.scene.launch('UIScene');
     this.emitXp();
+
+    if (import.meta.env.DEV) {
+      (window as Window & { __scene?: GameScene }).__scene = this;
+    }
+  }
+
+  getRunDebug(): {
+    player: { x: number; y: number };
+    dashReadyIn: number;
+    chests: { x: number; y: number }[];
+    loot: { x: number; y: number }[];
+  } {
+    return {
+      player: { x: this.player.x, y: this.player.y },
+      dashReadyIn: Math.max(0, this.dashReadyAt - this.time.now),
+      chests: this.chests
+        .getChildren()
+        .filter((child) => (child as Chest).active)
+        .map((child) => ({ x: (child as Chest).x, y: (child as Chest).y })),
+      loot: this.loot
+        .getChildren()
+        .filter((child) => (child as Loot).active)
+        .map((child) => ({ x: (child as Loot).x, y: (child as Loot).y })),
+    };
   }
 
   getXpSnapshot(): XpSnapshot {
