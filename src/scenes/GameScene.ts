@@ -8,6 +8,15 @@ import {
 import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { Loot } from '../entities/Loot';
 import {
+  Bush,
+  BUSH_COUNT,
+  GRASS_COUNT,
+  TREE_COUNT,
+  TREE_TRUNK_SIZE,
+  Tree,
+  paintGrassTufts,
+} from '../entities/Nature';
+import {
   Projectile,
   PROJECTILE_FIRE_INTERVAL_MS,
   PROJECTILE_SPEED,
@@ -28,6 +37,7 @@ import {
   MINIMAP_SIZE,
   MINIMAP_TOP,
   MINIMAP_TOWER_BLIP,
+  MINIMAP_TREE_BLIP_R,
   minimapScreenX,
   minimapZoom,
 } from '../systems/minimap';
@@ -64,6 +74,11 @@ const CHEST_EDGE_MARGIN = 48;
 const CHEST_CLEAR_TOWER = 88;
 const CHEST_CLEAR_CHEST = 40;
 const CHEST_CLEAR_PLAYER = 140;
+const NATURE_EDGE = 40;
+const TREE_CLEAR_PLAYER = 180;
+const TREE_CLEAR_TOWER = 110;
+const TREE_CLEAR_CHEST = 56;
+const TREE_CLEAR_TREE = 74;
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -74,6 +89,8 @@ export class GameScene extends Phaser.Scene {
   private orbs!: Phaser.Physics.Arcade.Group;
   private chests!: Phaser.Physics.Arcade.Group;
   private loot!: Phaser.Physics.Arcade.Group;
+  private trees!: Phaser.Physics.Arcade.StaticGroup;
+  private bushes!: Phaser.GameObjects.Group;
   private fireTimer?: Phaser.Time.TimerEvent;
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
@@ -129,6 +146,8 @@ export class GameScene extends Phaser.Scene {
     TowerProjectile.ensureTextures(this);
     Chest.ensureTexture(this);
     Loot.ensureTextures(this);
+    Bush.ensureTexture(this);
+    Tree.ensureTexture(this);
 
     this.player = this.physics.add.sprite(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'player');
     this.player.setCollideWorldBounds(true);
@@ -181,6 +200,8 @@ export class GameScene extends Phaser.Scene {
     this.orbs = this.physics.add.group();
     this.chests = this.physics.add.group();
     this.loot = this.physics.add.group();
+    this.trees = this.physics.add.staticGroup();
+    this.bushes = this.add.group();
     this.enemies.createCallback = (child) => this.hideFromMinimap(child);
     this.projectiles.createCallback = (child) => this.hideFromMinimap(child);
     this.towerShots.createCallback = (child) => this.hideFromMinimap(child);
@@ -189,6 +210,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(this.player, this.towers);
     this.physics.add.collider(this.enemies, this.towers);
+    this.physics.add.collider(this.player, this.trees);
+    this.physics.add.collider(this.enemies, this.trees);
     this.physics.add.overlap(
       this.projectiles,
       this.towers,
@@ -238,6 +261,20 @@ export class GameScene extends Phaser.Scene {
       undefined,
       this,
     );
+    this.physics.add.overlap(
+      this.projectiles,
+      this.trees,
+      this.onShotHitTree,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.towerShots,
+      this.trees,
+      this.onShotHitTree,
+      undefined,
+      this,
+    );
 
     const keyboard = this.input.keyboard;
     if (!keyboard) {
@@ -277,6 +314,7 @@ export class GameScene extends Phaser.Scene {
 
     this.placeTowers();
     this.spawnChests();
+    this.placeNature();
     this.setupMinimap();
     this.time.delayedCall(4500, () => {
       if (this.gameOver || this.levelingUp) {
@@ -315,6 +353,8 @@ export class GameScene extends Phaser.Scene {
     dashReadyIn: number;
     chests: { x: number; y: number }[];
     loot: { x: number; y: number }[];
+    trees: { x: number; y: number }[];
+    bushCount: number;
   } {
     return {
       player: { x: this.player.x, y: this.player.y },
@@ -327,6 +367,11 @@ export class GameScene extends Phaser.Scene {
         .getChildren()
         .filter((child) => (child as Loot).active)
         .map((child) => ({ x: (child as Loot).x, y: (child as Loot).y })),
+      trees: this.trees
+        .getChildren()
+        .filter((child) => (child as Tree).active)
+        .map((child) => ({ x: (child as Tree).x, y: (child as Tree).y })),
+      bushCount: this.bushes.getLength(),
     };
   }
 
@@ -456,7 +501,7 @@ export class GameScene extends Phaser.Scene {
     destX: number,
     destY: number,
   ): Phaser.Types.Math.Vector2Like | null {
-    if (!this.pointHitsTower(destX, destY)) {
+    if (!this.pointHitsSolid(destX, destY)) {
       return { x: destX, y: destY };
     }
 
@@ -464,7 +509,7 @@ export class GameScene extends Phaser.Scene {
       const t = step / 9;
       const x = Phaser.Math.Linear(this.player.x, destX, t);
       const y = Phaser.Math.Linear(this.player.y, destY, t);
-      if (!this.pointHitsTower(x, y)) {
+      if (!this.pointHitsSolid(x, y)) {
         return { x, y };
       }
     }
@@ -472,14 +517,23 @@ export class GameScene extends Phaser.Scene {
     return null;
   }
 
-  private pointHitsTower(x: number, y: number): boolean {
-    const clearance = TOWER_SIZE / 2 + PLAYER_SIZE / 2 - 4;
+  private pointHitsSolid(x: number, y: number): boolean {
+    const towerClearance = TOWER_SIZE / 2 + PLAYER_SIZE / 2 - 4;
     for (const child of this.towers.getChildren()) {
       const tower = child as Tower;
-      if (Math.abs(tower.x - x) < clearance && Math.abs(tower.y - y) < clearance) {
+      if (Math.abs(tower.x - x) < towerClearance && Math.abs(tower.y - y) < towerClearance) {
         return true;
       }
     }
+
+    const treeClearance = TREE_TRUNK_SIZE / 2 + PLAYER_SIZE / 2 - 2;
+    for (const child of this.trees.getChildren()) {
+      const tree = child as Tree;
+      if (Phaser.Math.Distance.Between(tree.x, tree.y, x, y) < treeClearance) {
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -616,6 +670,13 @@ export class GameScene extends Phaser.Scene {
         projectile.destroy();
       }
     };
+
+  private onShotHitTree: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (shotObj) => {
+    const shot = shotObj as Phaser.Physics.Arcade.Sprite;
+    if (shot.active) {
+      shot.destroy();
+    }
+  };
 
   private onTowerShotHitPlayer: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
     _playerObj,
@@ -838,6 +899,69 @@ export class GameScene extends Phaser.Scene {
 
   private emitXp(): void {
     this.game.events.emit(GameEvents.XpChanged, this.getXpSnapshot());
+  }
+
+  private placeNature(): void {
+    const grass = paintGrassTufts(this, GRASS_COUNT, WORLD_WIDTH, WORLD_HEIGHT);
+    this.worldDecor.push(grass);
+
+    for (let i = 0; i < BUSH_COUNT; i += 1) {
+      const bush = new Bush(
+        this,
+        Phaser.Math.Between(NATURE_EDGE, WORLD_WIDTH - NATURE_EDGE),
+        Phaser.Math.Between(NATURE_EDGE, WORLD_HEIGHT - NATURE_EDGE),
+      );
+      this.bushes.add(bush);
+    }
+
+    for (let i = 0; i < TREE_COUNT; i += 1) {
+      const point = this.pickClearTreePoint();
+      this.trees.add(new Tree(this, point.x, point.y));
+    }
+  }
+
+  private pickClearTreePoint(): Phaser.Types.Math.Vector2Like {
+    let best = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
+    for (let attempt = 0; attempt < 28; attempt += 1) {
+      const point = {
+        x: Phaser.Math.Between(NATURE_EDGE, WORLD_WIDTH - NATURE_EDGE),
+        y: Phaser.Math.Between(NATURE_EDGE, WORLD_HEIGHT - NATURE_EDGE),
+      };
+      if (this.isTreePointClear(point.x, point.y)) {
+        return point;
+      }
+      best = point;
+    }
+    return best;
+  }
+
+  private isTreePointClear(x: number, y: number): boolean {
+    if (Phaser.Math.Distance.Between(x, y, WORLD_WIDTH / 2, WORLD_HEIGHT / 2) < TREE_CLEAR_PLAYER) {
+      return false;
+    }
+
+    for (const child of this.towers.getChildren()) {
+      const tower = child as Tower;
+      if (Phaser.Math.Distance.Between(x, y, tower.x, tower.y) < TREE_CLEAR_TOWER) {
+        return false;
+      }
+    }
+
+    for (const child of this.chests.getChildren()) {
+      const chest = child as Chest;
+      if (Phaser.Math.Distance.Between(x, y, chest.x, chest.y) < TREE_CLEAR_CHEST) {
+        return false;
+      }
+    }
+
+    for (const child of this.trees.getChildren()) {
+      const tree = child as Tree;
+      if (Phaser.Math.Distance.Between(x, y, tree.x, tree.y) < TREE_CLEAR_TREE) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private spawnChests(): void {
@@ -1066,6 +1190,8 @@ export class GameScene extends Phaser.Scene {
     this.hideFromMinimap(this.loot);
     this.hideFromMinimap(this.chests);
     this.hideFromMinimap(this.towers);
+    this.hideFromMinimap(this.trees);
+    this.hideFromMinimap(this.bushes);
 
     this.playerBlip = this.add
       .circle(this.player.x, this.player.y, MINIMAP_PLAYER_BLIP_R, 0x4caf50, 1)
@@ -1078,6 +1204,15 @@ export class GameScene extends Phaser.Scene {
       const blip = this.add
         .rectangle(tower.x, tower.y, MINIMAP_TOWER_BLIP, MINIMAP_TOWER_BLIP, 0xe53935, 1)
         .setDepth(1000)
+        .setData('minimapBlip', true);
+      this.cameras.main.ignore(blip);
+    }
+
+    for (const child of this.trees.getChildren()) {
+      const tree = child as Tree;
+      const blip = this.add
+        .circle(tree.x, tree.y, MINIMAP_TREE_BLIP_R, 0x1b5e20, 1)
+        .setDepth(999)
         .setData('minimapBlip', true);
       this.cameras.main.ignore(blip);
     }
