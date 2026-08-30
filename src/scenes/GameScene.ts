@@ -44,7 +44,7 @@ const HP_BAR_HEIGHT = 6;
 const HP_BAR_OFFSET_Y = 30;
 const DASH_BAR_WIDTH = 42;
 const DASH_BAR_HEIGHT = 4;
-const DASH_BAR_OFFSET_Y = 42;
+const DASH_BAR_OFFSET_Y = 48;
 const DASH_DISTANCE = 200;
 const DASH_COOLDOWN_MS = 15000;
 const DASH_COOLDOWN_MIN_MS = 3000;
@@ -101,6 +101,7 @@ export class GameScene extends Phaser.Scene {
   private hpBarFill!: Phaser.GameObjects.Rectangle;
   private dashBarBg!: Phaser.GameObjects.Rectangle;
   private dashBarFill!: Phaser.GameObjects.Rectangle;
+  private dashTimerText!: Phaser.GameObjects.Text;
   private dashReadyAt = 0;
   private dashCooldownMs = DASH_COOLDOWN_MS;
   private lastMoveDir = new Phaser.Math.Vector2(0, -1);
@@ -162,6 +163,14 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0, 0.5)
       .setDepth(102);
+    this.dashTimerText = this.add
+      .text(this.player.x + DASH_BAR_WIDTH / 2 + 10, this.player.y - DASH_BAR_OFFSET_Y, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#4dd0e1',
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(103);
     this.updateHpBar();
     this.updateDashBar();
 
@@ -247,7 +256,14 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(200);
-    this.hudObjects.push(this.hpBarBg, this.hpBarFill, this.dashBarBg, this.dashBarFill, hint);
+    this.hudObjects.push(
+      this.hpBarBg,
+      this.hpBarFill,
+      this.dashBarBg,
+      this.dashBarFill,
+      this.dashTimerText,
+      hint,
+    );
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 1, 1);
@@ -729,6 +745,7 @@ export class GameScene extends Phaser.Scene {
     this.hpBarFill.setPosition(this.player.x - HP_BAR_WIDTH / 2, hpY);
     this.dashBarBg.setPosition(this.player.x, dashY);
     this.dashBarFill.setPosition(this.player.x - DASH_BAR_WIDTH / 2, dashY);
+    this.dashTimerText.setPosition(this.player.x + DASH_BAR_WIDTH / 2 + 8, dashY);
   }
 
   private updateHpBar(): void {
@@ -744,6 +761,11 @@ export class GameScene extends Phaser.Scene {
       remaining <= 0 ? 1 : Phaser.Math.Clamp(1 - remaining / this.dashCooldownMs, 0, 1);
     this.dashBarFill.displayWidth = Math.max(ratio * DASH_BAR_WIDTH, remaining <= 0 ? DASH_BAR_WIDTH : 2);
     this.dashBarFill.setFillStyle(remaining <= 0 ? 0x4dd0e1 : 0x0277bd);
+    if (remaining <= 0) {
+      this.dashTimerText.setText('');
+    } else {
+      this.dashTimerText.setText((remaining / 1000).toFixed(1));
+    }
     this.syncOverheadBars();
   }
 
