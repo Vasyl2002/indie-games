@@ -916,7 +916,9 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = 0; i < TREE_COUNT; i += 1) {
       const point = this.pickClearTreePoint();
-      this.trees.add(new Tree(this, point.x, point.y));
+      const tree = new Tree(this, point.x, point.y);
+      this.trees.add(tree);
+      tree.enableTrunkCollider();
     }
   }
 

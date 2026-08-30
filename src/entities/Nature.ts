@@ -45,14 +45,18 @@ export class Tree extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, TREE_TEXTURE);
 
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
-
     this.setOrigin(0.5, 0.78);
+    this.setDepth(TREE_DEPTH);
+  }
+
+  enableTrunkCollider(): void {
+    if (!this.body) {
+      this.scene.physics.add.existing(this, true);
+    }
+
     this.setImmovable(true);
     this.setPushable(false);
-    this.setDepth(TREE_DEPTH);
-    this.setSize(TREE_TRUNK_SIZE, TREE_TRUNK_SIZE);
-    this.setOffset((TREE_WIDTH - TREE_TRUNK_SIZE) / 2, TREE_HEIGHT * 0.78 - TREE_TRUNK_SIZE / 2);
+    this.setCircle(TREE_TRUNK_SIZE / 2);
     this.refreshBody();
   }
 
