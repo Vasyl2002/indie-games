@@ -181,6 +181,11 @@ export class GameScene extends Phaser.Scene {
     this.orbs = this.physics.add.group();
     this.chests = this.physics.add.group();
     this.loot = this.physics.add.group();
+    this.enemies.createCallback = (child) => this.hideFromMinimap(child);
+    this.projectiles.createCallback = (child) => this.hideFromMinimap(child);
+    this.towerShots.createCallback = (child) => this.hideFromMinimap(child);
+    this.orbs.createCallback = (child) => this.hideFromMinimap(child);
+    this.loot.createCallback = (child) => this.hideFromMinimap(child);
     this.physics.add.collider(this.enemies, this.enemies);
     this.physics.add.collider(this.player, this.towers);
     this.physics.add.collider(this.enemies, this.towers);
@@ -948,18 +953,26 @@ export class GameScene extends Phaser.Scene {
     blip?.destroy();
     chest.destroy();
 
-    const loot = new Loot(this, dropX, dropY, Loot.randomKind());
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const loot = new Loot(
+      this,
+      dropX + Math.cos(angle) * 38,
+      dropY + Math.sin(angle) * 38,
+      Loot.randomKind(),
+    );
     this.hideFromMinimap(loot);
-    loot.setScale(0.4);
+    loot.setScale(0.45);
     this.tweens.add({
       targets: loot,
-      scale: 1,
-      duration: 180,
+      scale: 1.35,
+      duration: 220,
       ease: 'Back.Out',
       onComplete: () => {
-        if (loot.active) {
-          this.loot.add(loot);
-        }
+        this.time.delayedCall(280, () => {
+          if (loot.active) {
+            this.loot.add(loot);
+          }
+        });
       },
     });
   };
