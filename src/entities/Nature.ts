@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { BUSH_KEYS, TREE_KEYS, fitDisplaySize, pickRandomKey } from '../systems/assets';
 
-export const BUSH_COUNT = 50;
-export const TREE_COUNT = 30;
+export const GRASS_COUNT = 720;
+export const BUSH_COUNT = 190;
+export const TREE_COUNT = 115;
 
+export const GRASS_DEPTH = -6;
 export const BUSH_DEPTH = 115;
 export const TREE_DEPTH = 40;
 
@@ -41,4 +43,33 @@ export class Tree extends Phaser.Physics.Arcade.Sprite {
     this.setPushable(false);
     this.refreshBody();
   }
+}
+
+export function paintGrassTufts(
+  scene: Phaser.Scene,
+  count: number,
+  worldWidth: number,
+  worldHeight: number,
+): Phaser.GameObjects.Graphics {
+  const grass = scene.add.graphics().setDepth(GRASS_DEPTH);
+  const margin = 24;
+
+  for (let i = 0; i < count; i += 1) {
+    const x = Phaser.Math.Between(margin, worldWidth - margin);
+    const y = Phaser.Math.Between(margin, worldHeight - margin);
+    const tint = Phaser.Math.RND.pick([0xc5e1a5, 0xaed581, 0x9ccc65]);
+    grass.lineStyle(1.6, tint, 0.9);
+
+    const blades = Phaser.Math.Between(2, 4);
+    for (let blade = 0; blade < blades; blade += 1) {
+      const lean = Phaser.Math.FloatBetween(-0.55, 0.55);
+      const height = Phaser.Math.Between(6, 11);
+      grass.beginPath();
+      grass.moveTo(x + blade * 2 - 2, y);
+      grass.lineTo(x + blade * 2 - 2 + lean * height, y - height);
+      grass.strokePath();
+    }
+  }
+
+  return grass;
 }

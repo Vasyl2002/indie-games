@@ -7,6 +7,7 @@ export const GameEvents = {
   GameOver: 'game-over',
   RestartRequested: 'restart-requested',
   WaveChanged: 'wave-changed',
+  LocaleChanged: 'locale-changed',
 } as const;
 
 export type { WaveSnapshot };

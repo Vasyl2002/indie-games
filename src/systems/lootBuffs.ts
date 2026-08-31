@@ -1,15 +1,17 @@
+import { type I18nKey } from './i18n';
+
 export type LootBuffId = 'run-speed' | 'damage' | 'max-hp' | 'dash-cooldown';
 
 export type LootBuff = {
   id: LootBuffId;
-  text: string;
+  textKey: I18nKey;
 };
 
 const LOOT_BUFFS: LootBuff[] = [
-  { id: 'run-speed', text: '+5% к скорости бега' },
-  { id: 'damage', text: '+5% к урону' },
-  { id: 'max-hp', text: '+15 к максимальному HP' },
-  { id: 'dash-cooldown', text: '-1с к кулдауну рывка' },
+  { id: 'run-speed', textKey: 'loot_run_speed' },
+  { id: 'damage', textKey: 'loot_damage' },
+  { id: 'max-hp', textKey: 'loot_max_hp' },
+  { id: 'dash-cooldown', textKey: 'loot_dash_cooldown' },
 ];
 
 export function pickRandomLootBuff(): LootBuff {

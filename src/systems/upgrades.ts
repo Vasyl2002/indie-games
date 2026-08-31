@@ -1,3 +1,5 @@
+import { type I18nKey } from './i18n';
+
 export type UpgradeId =
   | 'fire-rate'
   | 'move-speed'
@@ -6,30 +8,30 @@ export type UpgradeId =
 
 export type UpgradeDef = {
   id: UpgradeId;
-  title: string;
-  description: string;
+  titleKey: I18nKey;
+  descKey: I18nKey;
 };
 
 export const UPGRADES: UpgradeDef[] = [
   {
     id: 'fire-rate',
-    title: '+20% к скорости стрельбы',
-    description: 'Снаряды вылетают чаще',
+    titleKey: 'upgrade_fire_rate_title',
+    descKey: 'upgrade_fire_rate_desc',
   },
   {
     id: 'move-speed',
-    title: '+Скорость бега',
-    description: '+18% к скорости WASD',
+    titleKey: 'upgrade_move_speed_title',
+    descKey: 'upgrade_move_speed_desc',
   },
   {
     id: 'projectile-size',
-    title: '+Размер снаряда',
-    description: 'Снаряды становятся крупнее',
+    titleKey: 'upgrade_projectile_size_title',
+    descKey: 'upgrade_projectile_size_desc',
   },
   {
     id: 'projectile-speed',
-    title: '+Скорость снаряда',
-    description: 'Снаряды летят быстрее',
+    titleKey: 'upgrade_projectile_speed_title',
+    descKey: 'upgrade_projectile_speed_desc',
   },
 ];
 

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
+import { t, toggleLocale } from '../systems/i18n';
 import { MINIMAP_SIZE, MINIMAP_TOP, minimapScreenX } from '../systems/minimap';
 import { pickRandomUpgrades, type UpgradeDef } from '../systems/upgrades';
 import { formatWaveClock } from '../systems/waves';
@@ -21,6 +22,9 @@ export class UIScene extends Phaser.Scene {
   private gameOverOverlay!: Phaser.GameObjects.Container;
   private choosing = false;
   private showingGameOver = false;
+  private lastWave?: WaveSnapshot;
+  private offeredUpgrades: UpgradeDef[] = [];
+  private langKey?: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super('UIScene');
@@ -54,7 +58,7 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.waveTimer = this.add
-      .text(width / 2, 46, 'ВОЛНА 1   1:30', {
+      .text(width / 2, 46, t('wave', { n: 1, clock: formatWaveClock(90_000) }), {
         fontFamily: 'monospace',
         fontSize: '22px',
         color: '#ffe14d',
@@ -87,7 +91,10 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on(GameEvents.LevelUp, this.onLevelUp, this);
     this.game.events.on(GameEvents.GameOver, this.onGameOver, this);
     this.game.events.on(GameEvents.WaveChanged, this.onWaveChanged, this);
+    this.game.events.on(GameEvents.LocaleChanged, this.onLocaleChanged, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.unbindEvents, this);
+
+    this.langKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.L);
 
     const gameScene = this.scene.get('GameScene');
     if (gameScene instanceof GameScene) {
@@ -111,18 +118,46 @@ export class UIScene extends Phaser.Scene {
     this.game.events.off(GameEvents.LevelUp, this.onLevelUp, this);
     this.game.events.off(GameEvents.GameOver, this.onGameOver, this);
     this.game.events.off(GameEvents.WaveChanged, this.onWaveChanged, this);
+    this.game.events.off(GameEvents.LocaleChanged, this.onLocaleChanged, this);
   }
 
+  update(): void {
+    if (!this.langKey || !Phaser.Input.Keyboard.JustDown(this.langKey)) {
+      return;
+    }
+    toggleLocale();
+    this.game.events.emit(GameEvents.LocaleChanged);
+  }
+
+  private onLocaleChanged = (): void => {
+    if (this.lastWave) {
+      this.renderWaveHud(this.lastWave);
+    }
+    if (this.choosing && this.offeredUpgrades.length > 0) {
+      this.showUpgradeCards(this.offeredUpgrades);
+    }
+    if (this.showingGameOver) {
+      this.showGameOver();
+    }
+  };
+
   private onWaveChanged = (snapshot: WaveSnapshot): void => {
-    this.waveTimer.setText(`ВОЛНА ${snapshot.wave}   ${formatWaveClock(snapshot.remainingMs)}`);
+    this.lastWave = snapshot;
+    this.renderWaveHud(snapshot);
+  };
+
+  private renderWaveHud(snapshot: WaveSnapshot): void {
+    this.waveTimer.setText(
+      t('wave', { n: snapshot.wave, clock: formatWaveClock(snapshot.remainingMs) }),
+    );
     this.waveTimer.setColor(snapshot.spawning ? '#ffe14d' : '#ff8a65');
     if (snapshot.spawning) {
       this.remainingLabel.setVisible(false);
       return;
     }
     this.remainingLabel.setVisible(true);
-    this.remainingLabel.setText(`Осталось врагов: ${snapshot.alive}`);
-  };
+    this.remainingLabel.setText(t('remaining', { n: snapshot.alive }));
+  }
 
   private onXpChanged = (snapshot: XpSnapshot): void => {
     const ratio = snapshot.max <= 0 ? 0 : Phaser.Math.Clamp(snapshot.current / snapshot.max, 0, 1);
@@ -141,12 +176,14 @@ export class UIScene extends Phaser.Scene {
   private onGameOver = (): void => {
     this.showingGameOver = true;
     this.choosing = false;
+    this.offeredUpgrades = [];
     this.overlay.setVisible(false);
     this.overlay.removeAll(true);
     this.showGameOver();
   };
 
   private showUpgradeCards(upgrades: UpgradeDef[]): void {
+    this.offeredUpgrades = upgrades;
     this.overlay.removeAll(true);
 
     const { width, height } = this.scale;
@@ -155,7 +192,7 @@ export class UIScene extends Phaser.Scene {
       .setInteractive();
 
     const title = this.add
-      .text(width / 2, height / 2 - CARD_HEIGHT / 2 - 56, 'LEVEL UP', {
+      .text(width / 2, height / 2 - CARD_HEIGHT / 2 - 56, t('levelUp'), {
         fontFamily: 'monospace',
         fontSize: '36px',
         color: '#ffe14d',
@@ -183,7 +220,7 @@ export class UIScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     const title = this.add
-      .text(0, -36, upgrade.title, {
+      .text(0, -36, t(upgrade.titleKey), {
         fontFamily: 'monospace',
         fontSize: '20px',
         color: '#e8eef7',
@@ -193,7 +230,7 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const description = this.add
-      .text(0, 48, upgrade.description, {
+      .text(0, 48, t(upgrade.descKey), {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#9fb0c8',
@@ -225,6 +262,7 @@ export class UIScene extends Phaser.Scene {
     }
 
     this.choosing = false;
+    this.offeredUpgrades = [];
     this.overlay.setVisible(false);
     this.overlay.removeAll(true);
     this.game.events.emit(GameEvents.UpgradeSelected, upgrade.id);
@@ -239,7 +277,7 @@ export class UIScene extends Phaser.Scene {
       .setInteractive();
 
     const title = this.add
-      .text(width / 2, height / 2 - 70, 'GAME OVER', {
+      .text(width / 2, height / 2 - 70, t('gameOver'), {
         fontFamily: 'monospace',
         fontSize: '64px',
         color: '#ff4d4d',
@@ -252,7 +290,7 @@ export class UIScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     const buttonLabel = this.add
-      .text(width / 2, height / 2 + 42, 'Restart', {
+      .text(width / 2, height / 2 + 42, t('restart'), {
         fontFamily: 'monospace',
         fontSize: '28px',
         color: '#ffe14d',
@@ -260,7 +298,7 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const buttonHint = this.add
-      .text(width / 2, height / 2 + 68, 'Перезапуск', {
+      .text(width / 2, height / 2 + 68, t('restartHint'), {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#9fb0c8',

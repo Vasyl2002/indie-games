@@ -7,7 +7,15 @@ import {
 } from '../entities/Enemy';
 import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { Loot } from '../entities/Loot';
-import { Bush, BUSH_COUNT, TREE_COUNT, TREE_TRUNK_SIZE, Tree } from '../entities/Nature';
+import {
+  Bush,
+  BUSH_COUNT,
+  GRASS_COUNT,
+  TREE_COUNT,
+  TREE_TRUNK_SIZE,
+  Tree,
+  paintGrassTufts,
+} from '../entities/Nature';
 import {
   Projectile,
   PROJECTILE_FIRE_INTERVAL_MS,
@@ -23,7 +31,9 @@ import {
 import { TowerProjectile } from '../entities/TowerProjectile';
 import { pickRandomKey, AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
+import { controlsHintText, t } from '../systems/i18n';
 import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
+import { applyWalkWobble, captureWalkBase, resetWalkWobble, type WalkWobbleState } from '../systems/walkWobble';
 import {
   MINIMAP_CHEST_BLIP_R,
   MINIMAP_PLAYER_BLIP_R,
@@ -74,7 +84,9 @@ const NATURE_EDGE = 40;
 const TREE_CLEAR_PLAYER = 180;
 const TREE_CLEAR_TOWER = 110;
 const TREE_CLEAR_CHEST = 56;
-const TREE_CLEAR_TREE = 74;
+const TREE_CLEAR_TREE = 58;
+const MAIN_CAMERA_ZOOM = 1.6;
+const PLAYER_MOVE_DRAG = 0.001;
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -129,6 +141,8 @@ export class GameScene extends Phaser.Scene {
   private hudObjects: Phaser.GameObjects.GameObject[] = [];
   private worldDecor: Phaser.GameObjects.GameObject[] = [];
   private chestPrompt!: Phaser.GameObjects.Text;
+  private hintText!: Phaser.GameObjects.Text;
+  private playerWalk!: WalkWobbleState;
 
   constructor() {
     super('GameScene');
@@ -165,7 +179,10 @@ export class GameScene extends Phaser.Scene {
     this.player.setCircle(this.player.width / 2);
     this.player.setMass(1);
     this.player.setPushable(true);
+    this.player.setDamping(true);
+    this.player.setDrag(PLAYER_MOVE_DRAG);
     this.player.setDepth(100);
+    this.playerWalk = captureWalkBase(this.player);
 
     this.hpBarBg = this.add
       .rectangle(this.player.x, this.player.y - HP_BAR_OFFSET_Y, HP_BAR_WIDTH + 2, HP_BAR_HEIGHT + 2, 0x1a1010)
@@ -294,14 +311,15 @@ export class GameScene extends Phaser.Scene {
       e: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
 
-    const hint = this.add
-      .text(width / 2, 86, 'WASD — движение · Space — рывок · E — сундук · мышь — прицел', {
+    this.hintText = this.add
+      .text(width / 2, 86, controlsHintText(), {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#e8eef7',
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
+      .setScale(1 / MAIN_CAMERA_ZOOM)
       .setDepth(200);
     this.hudObjects.push(
       this.hpBarBg,
@@ -309,11 +327,11 @@ export class GameScene extends Phaser.Scene {
       this.dashBarBg,
       this.dashBarFill,
       this.dashTimerText,
-      hint,
+      this.hintText,
     );
 
     this.chestPrompt = this.add
-      .text(0, 0, 'Press E', {
+      .text(0, 0, t('pressE'), {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#ffe14d',
@@ -328,6 +346,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 1, 1);
     this.cameras.main.centerOn(this.player.x, this.player.y);
+    this.cameras.main.setZoom(MAIN_CAMERA_ZOOM);
     this.cameras.main.setRoundPixels(true);
 
     this.placeTowers();
@@ -340,9 +359,11 @@ export class GameScene extends Phaser.Scene {
 
     this.game.events.on(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
     this.game.events.on(GameEvents.RestartRequested, this.restartRun, this);
+    this.game.events.on(GameEvents.LocaleChanged, this.refreshLocaleTexts, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off(GameEvents.UpgradeSelected, this.onUpgradeSelected, this);
       this.game.events.off(GameEvents.RestartRequested, this.restartRun, this);
+      this.game.events.off(GameEvents.LocaleChanged, this.refreshLocaleTexts, this);
     });
 
     this.startWave(1);
@@ -410,7 +431,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.updatePlayerMovement(delta);
     this.tryDash();
-    this.updateEnemyChase();
+    this.updateEnemyChase(delta);
     this.updateTowers();
     this.syncOverheadBars();
     this.updateDashBar();
@@ -420,37 +441,48 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updatePlayerMovement(delta: number): void {
-    let vx = 0;
-    let vy = 0;
+    let ax = 0;
+    let ay = 0;
 
     if (this.keys.a.isDown) {
-      vx -= 1;
+      ax -= 1;
     }
     if (this.keys.d.isDown) {
-      vx += 1;
+      ax += 1;
     }
     if (this.keys.w.isDown) {
-      vy -= 1;
+      ay -= 1;
     }
     if (this.keys.s.isDown) {
-      vy += 1;
+      ay += 1;
     }
 
-    if (vx !== 0 || vy !== 0) {
-      const length = Math.hypot(vx, vy);
-      this.lastMoveDir.set(vx / length, vy / length);
-      vx = this.lastMoveDir.x * this.stats.moveSpeed;
-      vy = this.lastMoveDir.y * this.stats.moveSpeed;
+    const moving = ax !== 0 || ay !== 0;
+    if (moving) {
+      const length = Math.hypot(ax, ay);
+      this.lastMoveDir.set(ax / length, ay / length);
     }
 
     const decay = Math.exp(-KNOCKBACK_DECAY_PER_SECOND * (delta / 1000));
     this.playerKnockback.scale(decay);
 
-    this.player.setVelocity(
-      vx + this.playerKnockback.x,
-      vy + this.playerKnockback.y,
-    );
+    if (moving) {
+      this.player.setVelocity(
+        this.lastMoveDir.x * this.stats.moveSpeed + this.playerKnockback.x,
+        this.lastMoveDir.y * this.stats.moveSpeed + this.playerKnockback.y,
+      );
+    } else if (this.playerKnockback.lengthSq() > 16) {
+      this.player.setVelocity(this.playerKnockback.x, this.playerKnockback.y);
+    }
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    applyWalkWobble(this.player, body.velocity.length(), delta, this.playerWalk);
   }
+
+  private refreshLocaleTexts = (): void => {
+    this.hintText?.setText(controlsHintText());
+    this.chestPrompt?.setText(t('pressE'));
+  };
 
   private updateTowers(): void {
     if (this.levelingUp || this.gameOver) {
@@ -563,13 +595,14 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
-  private updateEnemyChase(): void {
+  private updateEnemyChase(delta: number): void {
     for (const child of this.enemies.getChildren()) {
       const enemy = child as Enemy;
       if (!enemy.active) {
         continue;
       }
       enemy.chase(this.player);
+      enemy.updateWalk(delta);
     }
   }
 
@@ -879,6 +912,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.player);
     this.player.setAlpha(1);
     this.player.setVelocity(0, 0);
+    resetWalkWobble(this.player, this.playerWalk);
     this.scene.pause();
     this.game.events.emit(GameEvents.GameOver);
   }
@@ -996,6 +1030,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private placeNature(): void {
+    const grass = paintGrassTufts(this, GRASS_COUNT, WORLD_WIDTH, WORLD_HEIGHT);
+    this.worldDecor.push(grass);
+
     for (let i = 0; i < BUSH_COUNT; i += 1) {
       const bush = new Bush(
         this,
@@ -1015,7 +1052,7 @@ export class GameScene extends Phaser.Scene {
 
   private pickClearTreePoint(): Phaser.Types.Math.Vector2Like {
     let best = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
-    for (let attempt = 0; attempt < 28; attempt += 1) {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       const point = {
         x: Phaser.Math.Between(NATURE_EDGE, WORLD_WIDTH - NATURE_EDGE),
         y: Phaser.Math.Between(NATURE_EDGE, WORLD_HEIGHT - NATURE_EDGE),
@@ -1245,7 +1282,7 @@ export class GameScene extends Phaser.Scene {
     loot.destroy();
     const buff = pickRandomLootBuff();
     this.applyLootBuff(buff.id);
-    this.spawnFloatingText(this.player.x, this.player.y - 52, buff.text);
+    this.spawnFloatingText(this.player.x, this.player.y - 52, t(buff.textKey));
   };
 
   private applyLootBuff(id: LootBuffId): void {
