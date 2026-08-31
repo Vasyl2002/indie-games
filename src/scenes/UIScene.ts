@@ -161,6 +161,13 @@ export class UIScene extends Phaser.Scene {
   };
 
   private renderWaveHud(snapshot: WaveSnapshot): void {
+    if (snapshot.boss) {
+      this.waveTimer.setText(t('boss'));
+      this.waveTimer.setColor('#ce93d8');
+      this.remainingLabel.setVisible(false);
+      return;
+    }
+
     this.waveTimer.setText(
       t('wave', { n: snapshot.wave, clock: formatWaveClock(snapshot.remainingMs) }),
     );

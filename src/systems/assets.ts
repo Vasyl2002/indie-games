@@ -16,6 +16,8 @@ export const AssetKey = {
   bush1: 'bush_1',
   bush2: 'bush_2',
   bush3: 'bush_3',
+  bossStone: 'boss_stone',
+  stoneProj: 'stone_proj',
 } as const;
 
 export type AssetKeyName = (typeof AssetKey)[keyof typeof AssetKey];
@@ -37,6 +39,8 @@ export const GAME_IMAGES: ReadonlyArray<{ key: AssetKeyName; file: string }> = [
   { key: AssetKey.bush1, file: 'bush_1.png' },
   { key: AssetKey.bush2, file: 'bush_2.png' },
   { key: AssetKey.bush3, file: 'bush_3.png' },
+  { key: AssetKey.bossStone, file: 'boss_stone.png' },
+  { key: AssetKey.stoneProj, file: 'stone_proj.png' },
 ];
 
 export function preloadGameAssets(load: Phaser.Loader.LoaderPlugin): void {

@@ -5,11 +5,14 @@ export const WAVE_SPAWN_BASE_MS = 1600;
 export const WAVE_SPAWN_MIN_MS = 400;
 export const WAVE_SPAWN_DECAY = 0.82;
 
+export const BOSS_WAVE = 5;
+
 export type WaveSnapshot = {
   wave: number;
   remainingMs: number;
   spawning: boolean;
   alive: number;
+  boss: boolean;
 };
 
 export function spawnIntervalMs(wave: number): number {

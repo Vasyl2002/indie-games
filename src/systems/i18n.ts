@@ -23,6 +23,8 @@ const DICT = {
     loot_damage: 'Gloves! +5% Damage',
     loot_max_hp: '+15 Max HP',
     loot_dash_cooldown: '-1s Dash Cooldown',
+    boss: 'BOSS',
+    bossDefeated: 'Boss defeated!',
   },
   ru: {
     controlsHint: 'WASD — движение · Space — рывок · E — сундук · мышь — прицел',
@@ -46,6 +48,8 @@ const DICT = {
     loot_damage: 'Перчатки! +5% к урону',
     loot_max_hp: '+15 к максимальному HP',
     loot_dash_cooldown: '-1с к кулдауну рывка',
+    boss: 'БОСС',
+    bossDefeated: 'Босс повержен!',
   },
 } as const;
 

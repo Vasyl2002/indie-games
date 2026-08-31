@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { Chest, CHEST_OPEN_RADIUS, CHEST_SIZE } from '../entities/Chest';
 import {
+  Boss,
+  BOSS_CONTACT_DAMAGE,
+} from '../entities/Boss';
+import {
   Enemy,
   ENEMY_PUSH_FORCE,
   ENEMY_PUSH_MAX,
@@ -29,6 +33,7 @@ import {
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
+import { StoneProjectile, STONE_PROJ_DAMAGE } from '../entities/StoneProjectile';
 import { pickRandomKey, AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
 import { t } from '../systems/i18n';
@@ -46,6 +51,7 @@ import {
 } from '../systems/minimap';
 import { type UpgradeId } from '../systems/upgrades';
 import {
+  BOSS_WAVE,
   WAVE_DURATION_MS,
   enemyKeysForWave,
   spawnIntervalMs,
@@ -99,6 +105,10 @@ export class GameScene extends Phaser.Scene {
   private loot!: Phaser.Physics.Arcade.Group;
   private trees!: Phaser.Physics.Arcade.StaticGroup;
   private bushes!: Phaser.GameObjects.Group;
+  private stoneShots!: Phaser.GameObjects.Group;
+  private boss?: Boss;
+  private bossFight = false;
+  private bossBlip?: Phaser.GameObjects.Arc;
   private fireTimer?: Phaser.Time.TimerEvent;
   private spawnTimer?: Phaser.Time.TimerEvent;
   private waveNumber = 1;
@@ -163,6 +173,8 @@ export class GameScene extends Phaser.Scene {
       AssetKey.chest,
       AssetKey.lootBoot,
       AssetKey.lootGlove,
+      AssetKey.bossStone,
+      AssetKey.stoneProj,
       ...TREE_KEYS,
       ...BUSH_KEYS,
     ]);
@@ -228,9 +240,11 @@ export class GameScene extends Phaser.Scene {
     this.loot = this.physics.add.group();
     this.trees = this.physics.add.staticGroup();
     this.bushes = this.add.group();
+    this.stoneShots = this.add.group();
     this.enemies.createCallback = (child) => this.hideFromMinimap(child);
     this.projectiles.createCallback = (child) => this.hideFromMinimap(child);
     this.towerShots.createCallback = (child) => this.hideFromMinimap(child);
+    this.stoneShots.createCallback = (child) => this.hideFromMinimap(child);
     this.orbs.createCallback = (child) => this.hideFromMinimap(child);
     this.loot.createCallback = (child) => this.hideFromMinimap(child);
     this.physics.add.collider(this.enemies, this.enemies);
@@ -249,6 +263,13 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.towerShots,
       this.onTowerShotHitPlayer,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.player,
+      this.stoneShots,
+      this.onStoneHitPlayer,
       undefined,
       this,
     );
@@ -375,6 +396,9 @@ export class GameScene extends Phaser.Scene {
     remainingMs: number;
     spawning: boolean;
     alive: number;
+    boss: boolean;
+    bossArmor: number;
+    bossHp: number;
   } {
     return {
       player: { x: this.player.x, y: this.player.y },
@@ -396,6 +420,9 @@ export class GameScene extends Phaser.Scene {
       remainingMs: this.getWaveRemainingMs(),
       spawning: this.spawning,
       alive: this.aliveEnemyCount(),
+      boss: this.bossFight,
+      bossArmor: this.boss?.armor ?? 0,
+      bossHp: this.boss?.hp ?? 0,
     };
   }
 
@@ -405,6 +432,7 @@ export class GameScene extends Phaser.Scene {
       remainingMs: this.getWaveRemainingMs(),
       spawning: this.spawning,
       alive: this.aliveEnemyCount(),
+      boss: this.bossFight,
     };
   }
 
@@ -420,6 +448,7 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayerMovement(delta);
     this.tryDash();
     this.updateEnemyChase(delta);
+    this.updateBoss(delta);
     this.updateTowers();
     this.syncOverheadBars();
     this.updateDashBar();
@@ -593,6 +622,134 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private updateBoss(delta: number): void {
+    if (!this.boss?.active || this.levelingUp || this.gameOver) {
+      return;
+    }
+
+    this.boss.chase(this.player);
+    this.boss.updateWalk(delta);
+
+    if (this.boss.tryFire(this.time.now)) {
+      const stone = new StoneProjectile(this, this.boss.x, this.boss.y);
+      this.stoneShots.add(stone);
+      this.hideFromMinimap(stone);
+      stone.fireToward(this.player.x, this.player.y);
+    }
+  }
+
+  private startBossFight(): void {
+    if (this.bossFight && this.boss?.active) {
+      return;
+    }
+
+    this.bossFight = true;
+    this.spawning = false;
+    this.spawnTimer?.remove(false);
+    this.spawnTimer = undefined;
+    this.waveEndsAt = this.time.now;
+
+    const point = this.getOffscreenWavePoints(1)[0] ?? {
+      x: Phaser.Math.Clamp(this.player.x + 280, 48, WORLD_WIDTH - 48),
+      y: Phaser.Math.Clamp(this.player.y, 48, WORLD_HEIGHT - 48),
+    };
+    this.spawnBoss(point.x, point.y);
+    this.emitWaveHud(true);
+  }
+
+  private spawnBoss(x: number, y: number): void {
+    this.boss?.destroy();
+    this.bossBlip?.destroy();
+
+    const boss = new Boss(this, x, y);
+    this.boss = boss;
+    this.hideFromMinimap(boss);
+    this.hideFromMinimap(boss.barObjects());
+
+    this.physics.add.collider(boss, this.towers);
+    this.physics.add.collider(boss, this.trees);
+    this.physics.add.collider(this.player, boss, this.onPlayerBossCollide, undefined, this);
+    this.physics.add.overlap(this.projectiles, boss, this.onProjectileHitBoss, undefined, this);
+
+    this.bossBlip = this.add
+      .circle(boss.x, boss.y, MINIMAP_PLAYER_BLIP_R + 8, 0xab47bc, 1)
+      .setDepth(1002)
+      .setData('minimapBlip', true);
+    this.cameras.main.ignore(this.bossBlip);
+  }
+
+  private onPlayerBossCollide: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    playerObj,
+    bossObj,
+  ) => {
+    const player = playerObj as Phaser.Physics.Arcade.Sprite;
+    const boss = bossObj as Boss;
+    const dx = player.x - boss.x;
+    const dy = player.y - boss.y;
+    const length = Math.hypot(dx, dy) || 1;
+    this.playerKnockback.x += (dx / length) * ENEMY_PUSH_FORCE * 1.4;
+    this.playerKnockback.y += (dy / length) * ENEMY_PUSH_FORCE * 1.4;
+    this.playerKnockback.limit(ENEMY_PUSH_MAX);
+    this.takeDamage(BOSS_CONTACT_DAMAGE);
+  };
+
+  private onProjectileHitBoss: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    projectileObj,
+    bossObj,
+  ) => {
+    const projectile = projectileObj as Projectile;
+    const boss = bossObj as Boss;
+    if (!projectile.active || !boss.active) {
+      return;
+    }
+
+    projectile.destroy();
+    if (!boss.takeDamage(this.stats.damage)) {
+      return;
+    }
+
+    this.defeatBoss(boss);
+  };
+
+  private onStoneHitPlayer: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
+    _playerObj,
+    shotObj,
+  ) => {
+    const shot = shotObj as StoneProjectile;
+    if (!shot.active || this.gameOver || this.levelingUp) {
+      return;
+    }
+
+    shot.destroy();
+    this.takeDamage(STONE_PROJ_DAMAGE);
+  };
+
+  private defeatBoss(boss: Boss): void {
+    const dropX = boss.x;
+    const dropY = boss.y;
+    this.bossBlip?.destroy();
+    this.bossBlip = undefined;
+    this.boss = undefined;
+    this.bossFight = false;
+    boss.destroy();
+    this.spawnFloatingText(dropX, dropY - 40, t('bossDefeated'));
+
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (Math.PI * 2 * i) / 6;
+      const orb = new ExperienceOrb(
+        this,
+        dropX + Math.cos(angle) * 28,
+        dropY + Math.sin(angle) * 28,
+      );
+      this.orbs.add(orb);
+      this.hideFromMinimap(orb);
+    }
+
+    if (!this.gameOver && !this.levelingUp) {
+      this.startWave(this.waveNumber + 1);
+    }
+  }
+
   private fireProjectile(): void {
     if (this.levelingUp || this.gameOver) {
       return;
@@ -624,7 +781,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnEnemies(): void {
-    if (this.levelingUp || this.gameOver || !this.spawning) {
+    if (this.levelingUp || this.gameOver || !this.spawning || this.bossFight) {
       return;
     }
 
@@ -640,6 +797,7 @@ export class GameScene extends Phaser.Scene {
   private startWave(wave: number): void {
     this.waveNumber = wave;
     this.spawning = true;
+    this.bossFight = false;
     this.waveEndsAt = this.time.now + WAVE_DURATION_MS;
     this.restartSpawnTimer();
     this.spawnEnemies();
@@ -661,6 +819,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.bossFight) {
+      this.emitWaveHud();
+      return;
+    }
+
     if (this.spawning && this.time.now >= this.waveEndsAt) {
       this.spawning = false;
       this.spawnTimer?.remove(false);
@@ -669,10 +832,29 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!this.spawning && this.aliveEnemyCount() === 0) {
-      this.startWave(this.waveNumber + 1);
+      if (this.waveNumber >= BOSS_WAVE) {
+        this.startBossFight();
+      } else {
+        this.startWave(this.waveNumber + 1);
+      }
     }
 
     this.emitWaveHud();
+  }
+
+  skipToBossFight(): void {
+    this.spawnTimer?.remove(false);
+    this.spawnTimer = undefined;
+    for (const child of [...this.enemies.getChildren()]) {
+      (child as Enemy).destroy();
+    }
+    this.boss?.destroy();
+    this.bossBlip?.destroy();
+    this.boss = undefined;
+    this.bossBlip = undefined;
+    this.bossFight = false;
+    this.waveNumber = BOSS_WAVE;
+    this.startBossFight();
   }
 
   private getWaveRemainingMs(): number {
@@ -690,7 +872,7 @@ export class GameScene extends Phaser.Scene {
 
   private emitWaveHud(force = false): void {
     const snapshot = this.getWaveSnapshot();
-    const key = `${snapshot.wave}:${Math.ceil(snapshot.remainingMs / 1000)}:${snapshot.spawning ? 1 : 0}:${snapshot.alive}`;
+    const key = `${snapshot.wave}:${Math.ceil(snapshot.remainingMs / 1000)}:${snapshot.spawning ? 1 : 0}:${snapshot.alive}:${snapshot.boss ? 1 : 0}`;
     if (!force && key === this.lastWaveHudKey) {
       return;
     }
@@ -935,6 +1117,9 @@ export class GameScene extends Phaser.Scene {
     this.spawning = true;
     this.waveEndsAt = 0;
     this.lastWaveHudKey = '';
+    this.bossFight = false;
+    this.boss = undefined;
+    this.bossBlip = undefined;
     this.minimap = undefined;
     this.hudObjects = [];
     this.worldDecor = [];
@@ -1342,6 +1527,7 @@ export class GameScene extends Phaser.Scene {
     this.hideFromMinimap(this.enemies);
     this.hideFromMinimap(this.projectiles);
     this.hideFromMinimap(this.towerShots);
+    this.hideFromMinimap(this.stoneShots);
     this.hideFromMinimap(this.orbs);
     this.hideFromMinimap(this.loot);
     this.hideFromMinimap(this.chests);
@@ -1386,6 +1572,9 @@ export class GameScene extends Phaser.Scene {
   private syncMinimapBlips(): void {
     if (this.playerBlip?.active) {
       this.playerBlip.setPosition(this.player.x, this.player.y);
+    }
+    if (this.bossBlip?.active && this.boss?.active) {
+      this.bossBlip.setPosition(this.boss.x, this.boss.y);
     }
   }
 
