@@ -141,6 +141,7 @@ export class GameScene extends Phaser.Scene {
   private playerHp = PLAYER_MAX_HP;
   private playerMaxHp = PLAYER_MAX_HP;
   private invulnerableUntil = 0;
+  private iframeBlinkToken = 0;
   private hpBarBg!: Phaser.GameObjects.Rectangle;
   private hpBarFill!: Phaser.GameObjects.Rectangle;
   private dashBarBg!: Phaser.GameObjects.Rectangle;
@@ -1072,20 +1073,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startIframeBlink(): void {
+    this.iframeBlinkToken += 1;
+    const token = this.iframeBlinkToken;
     this.tweens.killTweensOf(this.player);
     this.player.setAlpha(1);
-    const cycleMs = IFRAME_BLINK_MS * 2;
     this.tweens.add({
       targets: this.player,
       alpha: IFRAME_BLINK_ALPHA,
       duration: IFRAME_BLINK_MS,
       yoyo: true,
-      repeat: Math.max(0, Math.floor(IFRAME_MS / cycleMs) - 1),
-      onComplete: () => {
-        if (this.player.active) {
-          this.player.setAlpha(1);
-        }
-      },
+      repeat: -1,
+    });
+    this.time.delayedCall(IFRAME_MS, () => {
+      if (token !== this.iframeBlinkToken) {
+        return;
+      }
+      this.tweens.killTweensOf(this.player);
+      if (this.player.active) {
+        this.player.setAlpha(1);
+      }
     });
   }
 
@@ -1124,6 +1130,7 @@ export class GameScene extends Phaser.Scene {
     this.playerMaxHp = PLAYER_MAX_HP;
     this.playerHp = PLAYER_MAX_HP;
     this.invulnerableUntil = 0;
+    this.iframeBlinkToken = 0;
     this.dashReadyAt = 0;
     this.dashCooldownMs = DASH_COOLDOWN_MS;
     this.lastMoveDir.set(0, -1);
