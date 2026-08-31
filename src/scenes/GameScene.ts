@@ -3,6 +3,7 @@ import { Chest, CHEST_OPEN_RADIUS, CHEST_SIZE } from '../entities/Chest';
 import {
   Boss,
   BOSS_CONTACT_DAMAGE,
+  BOSS_SIZE,
 } from '../entities/Boss';
 import {
   Enemy,
@@ -33,7 +34,7 @@ import {
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
-import { StoneProjectile, STONE_PROJ_DAMAGE } from '../entities/StoneProjectile';
+import { StoneProjectile, STONE_PROJ_DAMAGE, STONE_PROJ_SIZE } from '../entities/StoneProjectile';
 import { pickRandomKey, AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
 import { t } from '../systems/i18n';
@@ -634,7 +635,11 @@ export class GameScene extends Phaser.Scene {
       const stone = new StoneProjectile(this, this.boss.x, this.boss.y);
       this.stoneShots.add(stone);
       this.hideFromMinimap(stone);
-      stone.fireToward(this.player.x, this.player.y);
+      stone.fireToward(
+        this.player.x,
+        this.player.y,
+        BOSS_SIZE / 2 + STONE_PROJ_SIZE / 2 + 8,
+      );
     }
   }
 
@@ -717,6 +722,9 @@ export class GameScene extends Phaser.Scene {
   ) => {
     const shot = shotObj as StoneProjectile;
     if (!shot.active || this.gameOver || this.levelingUp) {
+      return;
+    }
+    if (this.time.now < shot.harmlessUntil) {
       return;
     }
 
