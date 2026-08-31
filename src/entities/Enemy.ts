@@ -10,8 +10,8 @@ export const ENEMY_MAX_HP = 40;
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   hp = ENEMY_MAX_HP;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, AssetKey.enemy1);
+  constructor(scene: Phaser.Scene, x: number, y: number, textureKey: string = AssetKey.enemy1) {
+    super(scene, x, y, textureKey);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

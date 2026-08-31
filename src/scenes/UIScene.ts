@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { XP_TO_LEVEL } from '../entities/ExperienceOrb';
-import { GameEvents, type XpSnapshot } from '../systems/events';
+import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
 import { MINIMAP_SIZE, MINIMAP_TOP, minimapScreenX } from '../systems/minimap';
 import { pickRandomUpgrades, type UpgradeDef } from '../systems/upgrades';
+import { formatWaveClock } from '../systems/waves';
 import { GameScene } from './GameScene';
 
 const BAR_WIDTH = 720;
@@ -14,6 +15,8 @@ const CARD_GAP = 28;
 export class UIScene extends Phaser.Scene {
   private barFill!: Phaser.GameObjects.Rectangle;
   private xpLabel!: Phaser.GameObjects.Text;
+  private waveTimer!: Phaser.GameObjects.Text;
+  private remainingLabel!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Container;
   private gameOverOverlay!: Phaser.GameObjects.Container;
   private choosing = false;
@@ -50,6 +53,31 @@ export class UIScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0);
 
+    this.waveTimer = this.add
+      .text(width / 2, 46, 'ВОЛНА 1   1:30', {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#ffe14d',
+        stroke: '#1a1408',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(50);
+
+    this.remainingLabel = this.add
+      .text(width / 2, 72, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffcc80',
+        stroke: '#1a1408',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(50)
+      .setVisible(false);
+
     this.drawMinimapFrame(width);
 
     this.overlay = this.add.container(0, 0).setVisible(false).setDepth(1000);
@@ -58,11 +86,13 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on(GameEvents.XpChanged, this.onXpChanged, this);
     this.game.events.on(GameEvents.LevelUp, this.onLevelUp, this);
     this.game.events.on(GameEvents.GameOver, this.onGameOver, this);
+    this.game.events.on(GameEvents.WaveChanged, this.onWaveChanged, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.unbindEvents, this);
 
     const gameScene = this.scene.get('GameScene');
     if (gameScene instanceof GameScene) {
       this.onXpChanged(gameScene.getXpSnapshot());
+      this.onWaveChanged(gameScene.getWaveSnapshot());
     }
   }
 
@@ -80,7 +110,19 @@ export class UIScene extends Phaser.Scene {
     this.game.events.off(GameEvents.XpChanged, this.onXpChanged, this);
     this.game.events.off(GameEvents.LevelUp, this.onLevelUp, this);
     this.game.events.off(GameEvents.GameOver, this.onGameOver, this);
+    this.game.events.off(GameEvents.WaveChanged, this.onWaveChanged, this);
   }
+
+  private onWaveChanged = (snapshot: WaveSnapshot): void => {
+    this.waveTimer.setText(`ВОЛНА ${snapshot.wave}   ${formatWaveClock(snapshot.remainingMs)}`);
+    this.waveTimer.setColor(snapshot.spawning ? '#ffe14d' : '#ff8a65');
+    if (snapshot.spawning) {
+      this.remainingLabel.setVisible(false);
+      return;
+    }
+    this.remainingLabel.setVisible(true);
+    this.remainingLabel.setText(`Осталось врагов: ${snapshot.alive}`);
+  };
 
   private onXpChanged = (snapshot: XpSnapshot): void => {
     const ratio = snapshot.max <= 0 ? 0 : Phaser.Math.Clamp(snapshot.current / snapshot.max, 0, 1);

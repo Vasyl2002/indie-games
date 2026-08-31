@@ -21,8 +21,8 @@ import {
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
-import { AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
-import { GameEvents, type XpSnapshot } from '../systems/events';
+import { pickRandomKey, AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
+import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
 import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
 import {
   MINIMAP_CHEST_BLIP_R,
@@ -35,6 +35,11 @@ import {
   minimapZoom,
 } from '../systems/minimap';
 import { type UpgradeId } from '../systems/upgrades';
+import {
+  WAVE_DURATION_MS,
+  enemyKeysForWave,
+  spawnIntervalMs,
+} from '../systems/waves';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 56;
@@ -53,8 +58,7 @@ const DASH_COOLDOWN_MS = 15000;
 const DASH_COOLDOWN_MIN_MS = 3000;
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 3000;
-const WAVE_SIZE = 5;
-const WAVE_INTERVAL_MS = 2000;
+const WAVE_SIZE = 1;
 const SPAWN_MARGIN = 72;
 const SPAWN_SPACING = 52;
 const KNOCKBACK_DECAY_PER_SECOND = 8;
@@ -84,6 +88,11 @@ export class GameScene extends Phaser.Scene {
   private trees!: Phaser.Physics.Arcade.StaticGroup;
   private bushes!: Phaser.GameObjects.Group;
   private fireTimer?: Phaser.Time.TimerEvent;
+  private spawnTimer?: Phaser.Time.TimerEvent;
+  private waveNumber = 1;
+  private spawning = true;
+  private waveEndsAt = 0;
+  private lastWaveHudKey = '';
   private playerKnockback = new Phaser.Math.Vector2();
   private keys!: {
     w: Phaser.Input.Keyboard.Key;
@@ -138,6 +147,7 @@ export class GameScene extends Phaser.Scene {
     sharpenPixelArt(this, [
       AssetKey.player,
       AssetKey.enemy1,
+      AssetKey.enemy2,
       AssetKey.chest,
       AssetKey.lootBoot,
       AssetKey.lootGlove,
@@ -285,7 +295,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const hint = this.add
-      .text(width / 2, 50, 'WASD — движение · Space — рывок · E — сундук · мышь — прицел', {
+      .text(width / 2, 86, 'WASD — движение · Space — рывок · E — сундук · мышь — прицел', {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#e8eef7',
@@ -324,18 +334,6 @@ export class GameScene extends Phaser.Scene {
     this.spawnChests();
     this.placeNature();
     this.setupMinimap();
-    this.time.delayedCall(4500, () => {
-      if (this.gameOver || this.levelingUp) {
-        return;
-      }
-      this.spawnWave();
-      this.time.addEvent({
-        delay: WAVE_INTERVAL_MS,
-        loop: true,
-        callback: this.spawnWave,
-        callbackScope: this,
-      });
-    });
 
     this.fireProjectile();
     this.restartFireTimer();
@@ -347,6 +345,7 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off(GameEvents.RestartRequested, this.restartRun, this);
     });
 
+    this.startWave(1);
     this.scene.stop('UIScene');
     this.scene.launch('UIScene');
     this.emitXp();
@@ -363,6 +362,10 @@ export class GameScene extends Phaser.Scene {
     loot: { x: number; y: number }[];
     trees: { x: number; y: number }[];
     bushCount: number;
+    wave: number;
+    remainingMs: number;
+    spawning: boolean;
+    alive: number;
   } {
     return {
       player: { x: this.player.x, y: this.player.y },
@@ -380,6 +383,19 @@ export class GameScene extends Phaser.Scene {
         .filter((child) => (child as Tree).active)
         .map((child) => ({ x: (child as Tree).x, y: (child as Tree).y })),
       bushCount: this.bushes.getLength(),
+      wave: this.waveNumber,
+      remainingMs: this.getWaveRemainingMs(),
+      spawning: this.spawning,
+      alive: this.aliveEnemyCount(),
+    };
+  }
+
+  getWaveSnapshot(): WaveSnapshot {
+    return {
+      wave: this.waveNumber,
+      remainingMs: this.getWaveRemainingMs(),
+      spawning: this.spawning,
+      alive: this.aliveEnemyCount(),
     };
   }
 
@@ -399,6 +415,7 @@ export class GameScene extends Phaser.Scene {
     this.syncOverheadBars();
     this.updateDashBar();
     this.updateChestInteract();
+    this.updateWaves();
     this.syncMinimapBlips();
   }
 
@@ -586,16 +603,79 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private spawnWave(): void {
-    if (this.levelingUp || this.gameOver) {
+  private spawnEnemies(): void {
+    if (this.levelingUp || this.gameOver || !this.spawning) {
       return;
     }
 
+    const keys = enemyKeysForWave(this.waveNumber);
     for (const point of this.getOffscreenWavePoints(WAVE_SIZE)) {
-      const enemy = new Enemy(this, point.x, point.y);
+      const enemy = new Enemy(this, point.x, point.y, pickRandomKey(keys));
       this.enemies.add(enemy);
       this.hideFromMinimap(enemy);
     }
+    this.emitWaveHud();
+  }
+
+  private startWave(wave: number): void {
+    this.waveNumber = wave;
+    this.spawning = true;
+    this.waveEndsAt = this.time.now + WAVE_DURATION_MS;
+    this.restartSpawnTimer();
+    this.spawnEnemies();
+    this.emitWaveHud(true);
+  }
+
+  private restartSpawnTimer(): void {
+    this.spawnTimer?.remove(false);
+    this.spawnTimer = this.time.addEvent({
+      delay: spawnIntervalMs(this.waveNumber),
+      loop: true,
+      callback: this.spawnEnemies,
+      callbackScope: this,
+    });
+  }
+
+  private updateWaves(): void {
+    if (this.gameOver || this.levelingUp) {
+      return;
+    }
+
+    if (this.spawning && this.time.now >= this.waveEndsAt) {
+      this.spawning = false;
+      this.spawnTimer?.remove(false);
+      this.spawnTimer = undefined;
+      this.emitWaveHud(true);
+    }
+
+    if (!this.spawning && this.aliveEnemyCount() === 0) {
+      this.startWave(this.waveNumber + 1);
+    }
+
+    this.emitWaveHud();
+  }
+
+  private getWaveRemainingMs(): number {
+    if (!this.spawning) {
+      return 0;
+    }
+    return Math.max(0, this.waveEndsAt - this.time.now);
+  }
+
+  private aliveEnemyCount(): number {
+    return this.enemies
+      ? this.enemies.getChildren().filter((child) => (child as Enemy).active).length
+      : 0;
+  }
+
+  private emitWaveHud(force = false): void {
+    const snapshot = this.getWaveSnapshot();
+    const key = `${snapshot.wave}:${Math.ceil(snapshot.remainingMs / 1000)}:${snapshot.spawning ? 1 : 0}:${snapshot.alive}`;
+    if (!force && key === this.lastWaveHudKey) {
+      return;
+    }
+    this.lastWaveHudKey = key;
+    this.game.events.emit(GameEvents.WaveChanged, snapshot);
   }
 
   private getOffscreenWavePoints(
@@ -829,6 +909,11 @@ export class GameScene extends Phaser.Scene {
     this.lastMoveDir.set(0, -1);
     this.playerKnockback.set(0, 0);
     this.fireTimer = undefined;
+    this.spawnTimer = undefined;
+    this.waveNumber = 1;
+    this.spawning = true;
+    this.waveEndsAt = 0;
+    this.lastWaveHudKey = '';
     this.minimap = undefined;
     this.hudObjects = [];
     this.worldDecor = [];
