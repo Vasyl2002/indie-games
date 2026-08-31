@@ -31,7 +31,7 @@ import {
 import { TowerProjectile } from '../entities/TowerProjectile';
 import { pickRandomKey, AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
-import { controlsHintText, t } from '../systems/i18n';
+import { t } from '../systems/i18n';
 import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
 import { applyWalkWobble, captureWalkBase, resetWalkWobble, type WalkWobbleState } from '../systems/walkWobble';
 import {
@@ -81,11 +81,11 @@ const CHEST_CLEAR_TOWER = 88;
 const CHEST_CLEAR_CHEST = 40;
 const CHEST_CLEAR_PLAYER = 140;
 const NATURE_EDGE = 40;
-const TREE_CLEAR_PLAYER = 180;
+const TREE_CLEAR_PLAYER = 96;
 const TREE_CLEAR_TOWER = 110;
 const TREE_CLEAR_CHEST = 56;
 const TREE_CLEAR_TREE = 58;
-const MAIN_CAMERA_ZOOM = 1.6;
+const MAIN_CAMERA_ZOOM = 1.8;
 const PLAYER_MOVE_DRAG = 0.001;
 
 export class GameScene extends Phaser.Scene {
@@ -141,7 +141,6 @@ export class GameScene extends Phaser.Scene {
   private hudObjects: Phaser.GameObjects.GameObject[] = [];
   private worldDecor: Phaser.GameObjects.GameObject[] = [];
   private chestPrompt!: Phaser.GameObjects.Text;
-  private hintText!: Phaser.GameObjects.Text;
   private playerWalk!: WalkWobbleState;
 
   constructor() {
@@ -154,7 +153,6 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.resetRunState();
-    const { width } = this.scale;
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.drawWorldGround();
@@ -311,23 +309,12 @@ export class GameScene extends Phaser.Scene {
       e: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
 
-    this.hintText = this.add
-      .text(width / 2, 86, controlsHintText(), {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#e8eef7',
-      })
-      .setOrigin(0.5, 0)
-      .setScrollFactor(0)
-      .setScale(1 / MAIN_CAMERA_ZOOM)
-      .setDepth(200);
     this.hudObjects.push(
       this.hpBarBg,
       this.hpBarFill,
       this.dashBarBg,
       this.dashBarFill,
       this.dashTimerText,
-      this.hintText,
     );
 
     this.chestPrompt = this.add
@@ -353,6 +340,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnChests();
     this.placeNature();
     this.setupMinimap();
+    this.cameras.main.setZoom(MAIN_CAMERA_ZOOM);
 
     this.fireProjectile();
     this.restartFireTimer();
@@ -480,7 +468,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshLocaleTexts = (): void => {
-    this.hintText?.setText(controlsHintText());
     this.chestPrompt?.setText(t('pressE'));
   };
 

@@ -26,8 +26,8 @@ export function applyWalkWobble(
   if (moving) {
     const cadence = Phaser.Math.Clamp(speed / 90, 0.65, 2.8);
     state.phase += deltaMs * 0.012 * cadence;
-    const sway = Math.sin(state.phase) * 0.15;
-    const bob = Math.sin(state.phase * 2) * 0.065;
+    const sway = Math.sin(state.phase) * 0.22;
+    const bob = Math.sin(state.phase * 2) * 0.08;
     sprite.setRotation(sway);
     sprite.setScale(state.baseScaleX * (1 + sway * 0.18), state.baseScaleY * (1 + bob));
     return;

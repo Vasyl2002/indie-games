@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { GameEvents, type WaveSnapshot, type XpSnapshot } from '../systems/events';
-import { t, toggleLocale } from '../systems/i18n';
+import { controlsHintText, t, toggleLocale } from '../systems/i18n';
 import { MINIMAP_SIZE, MINIMAP_TOP, minimapScreenX } from '../systems/minimap';
 import { pickRandomUpgrades, type UpgradeDef } from '../systems/upgrades';
 import { formatWaveClock } from '../systems/waves';
@@ -18,13 +18,13 @@ export class UIScene extends Phaser.Scene {
   private xpLabel!: Phaser.GameObjects.Text;
   private waveTimer!: Phaser.GameObjects.Text;
   private remainingLabel!: Phaser.GameObjects.Text;
+  private hintLabel!: Phaser.GameObjects.Text;
   private overlay!: Phaser.GameObjects.Container;
   private gameOverOverlay!: Phaser.GameObjects.Container;
   private choosing = false;
   private showingGameOver = false;
   private lastWave?: WaveSnapshot;
   private offeredUpgrades: UpgradeDef[] = [];
-  private langKey?: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super('UIScene');
@@ -82,6 +82,18 @@ export class UIScene extends Phaser.Scene {
       .setDepth(50)
       .setVisible(false);
 
+    this.hintLabel = this.add
+      .text(width / 2, 98, controlsHintText(), {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#e8eef7',
+        stroke: '#1a1408',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(50);
+
     this.drawMinimapFrame(width);
 
     this.overlay = this.add.container(0, 0).setVisible(false).setDepth(1000);
@@ -94,7 +106,7 @@ export class UIScene extends Phaser.Scene {
     this.game.events.on(GameEvents.LocaleChanged, this.onLocaleChanged, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.unbindEvents, this);
 
-    this.langKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+    this.input.keyboard?.on('keydown-L', this.onLanguageKey, this);
 
     const gameScene = this.scene.get('GameScene');
     if (gameScene instanceof GameScene) {
@@ -119,17 +131,19 @@ export class UIScene extends Phaser.Scene {
     this.game.events.off(GameEvents.GameOver, this.onGameOver, this);
     this.game.events.off(GameEvents.WaveChanged, this.onWaveChanged, this);
     this.game.events.off(GameEvents.LocaleChanged, this.onLocaleChanged, this);
+    this.input.keyboard?.off('keydown-L', this.onLanguageKey, this);
   }
 
-  update(): void {
-    if (!this.langKey || !Phaser.Input.Keyboard.JustDown(this.langKey)) {
+  private onLanguageKey = (event: KeyboardEvent): void => {
+    if (event.repeat) {
       return;
     }
     toggleLocale();
     this.game.events.emit(GameEvents.LocaleChanged);
-  }
+  };
 
   private onLocaleChanged = (): void => {
+    this.hintLabel.setText(controlsHintText());
     if (this.lastWave) {
       this.renderWaveHud(this.lastWave);
     }
