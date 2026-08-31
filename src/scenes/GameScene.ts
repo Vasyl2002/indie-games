@@ -54,6 +54,7 @@ import { type UpgradeId } from '../systems/upgrades';
 import {
   BOSS_WAVE,
   WAVE_DURATION_MS,
+  enemyContactDamage,
   enemyKeysForWave,
   spawnIntervalMs,
 } from '../systems/waves';
@@ -62,8 +63,9 @@ const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 56;
 const PLAYER_MAX_HP = 100;
 const PLAYER_BASE_DAMAGE = 20;
-const CONTACT_DAMAGE = 15;
-const IFRAME_MS = 1000;
+const IFRAME_MS = 500;
+const IFRAME_BLINK_MS = 80;
+const IFRAME_BLINK_ALPHA = 0.5;
 const HP_BAR_WIDTH = 42;
 const HP_BAR_HEIGHT = 6;
 const HP_BAR_OFFSET_Y = 42;
@@ -400,6 +402,9 @@ export class GameScene extends Phaser.Scene {
     boss: boolean;
     bossArmor: number;
     bossHp: number;
+    playerHp: number;
+    contactDamage: number;
+    iframeMs: number;
   } {
     return {
       player: { x: this.player.x, y: this.player.y },
@@ -424,6 +429,9 @@ export class GameScene extends Phaser.Scene {
       boss: this.bossFight,
       bossArmor: this.boss?.armor ?? 0,
       bossHp: this.boss?.hp ?? 0,
+      playerHp: this.playerHp,
+      contactDamage: enemyContactDamage(this.waveNumber),
+      iframeMs: IFRAME_MS,
     };
   }
 
@@ -959,7 +967,7 @@ export class GameScene extends Phaser.Scene {
       this.playerKnockback.x += (dx / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.y += (dy / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.limit(ENEMY_PUSH_MAX);
-      this.takeDamage(CONTACT_DAMAGE);
+      this.takeDamage(enemyContactDamage(this.waveNumber));
     };
 
   private onPlayerShotHitTower: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
@@ -1066,12 +1074,13 @@ export class GameScene extends Phaser.Scene {
   private startIframeBlink(): void {
     this.tweens.killTweensOf(this.player);
     this.player.setAlpha(1);
+    const cycleMs = IFRAME_BLINK_MS * 2;
     this.tweens.add({
       targets: this.player,
-      alpha: 0.25,
-      duration: 80,
+      alpha: IFRAME_BLINK_ALPHA,
+      duration: IFRAME_BLINK_MS,
       yoyo: true,
-      repeat: Math.ceil(IFRAME_MS / 160) - 1,
+      repeat: Math.max(0, Math.floor(IFRAME_MS / cycleMs) - 1),
       onComplete: () => {
         if (this.player.active) {
           this.player.setAlpha(1);
