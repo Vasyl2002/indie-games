@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { AssetKey, fitDisplaySize } from '../systems/assets';
 
-export const ENEMY_SIZE = 28;
+export const ENEMY_SIZE = 48;
 export const ENEMY_SPEED = 140;
 export const ENEMY_PUSH_FORCE = 70;
 export const ENEMY_PUSH_MAX = 420;
@@ -11,7 +11,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   hp = ENEMY_MAX_HP;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, AssetKey.enemy);
+    super(scene, x, y, AssetKey.enemy1);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

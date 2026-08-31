@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { Chest, CHEST_SIZE } from '../entities/Chest';
+import { Chest, CHEST_OPEN_RADIUS, CHEST_SIZE } from '../entities/Chest';
 import {
   Enemy,
   ENEMY_PUSH_FORCE,
@@ -21,7 +21,7 @@ import {
   type TowerKind,
 } from '../entities/Tower';
 import { TowerProjectile } from '../entities/TowerProjectile';
-import { AssetKey, fitDisplaySize, preloadGameAssets } from '../systems/assets';
+import { AssetKey, BUSH_KEYS, TREE_KEYS, fitDisplaySize, preloadGameAssets, sharpenPixelArt } from '../systems/assets';
 import { GameEvents, type XpSnapshot } from '../systems/events';
 import { pickRandomLootBuff, type LootBuffId } from '../systems/lootBuffs';
 import {
@@ -37,17 +37,17 @@ import {
 import { type UpgradeId } from '../systems/upgrades';
 
 const PLAYER_SPEED = 260;
-const PLAYER_SIZE = 40;
+const PLAYER_SIZE = 56;
 const PLAYER_MAX_HP = 100;
 const PLAYER_BASE_DAMAGE = 20;
 const CONTACT_DAMAGE = 15;
 const IFRAME_MS = 1000;
 const HP_BAR_WIDTH = 42;
 const HP_BAR_HEIGHT = 6;
-const HP_BAR_OFFSET_Y = 30;
+const HP_BAR_OFFSET_Y = 42;
 const DASH_BAR_WIDTH = 42;
 const DASH_BAR_HEIGHT = 4;
-const DASH_BAR_OFFSET_Y = 48;
+const DASH_BAR_OFFSET_Y = 58;
 const DASH_DISTANCE = 200;
 const DASH_COOLDOWN_MS = 15000;
 const DASH_COOLDOWN_MIN_MS = 3000;
@@ -91,6 +91,7 @@ export class GameScene extends Phaser.Scene {
     s: Phaser.Input.Keyboard.Key;
     d: Phaser.Input.Keyboard.Key;
     space: Phaser.Input.Keyboard.Key;
+    e: Phaser.Input.Keyboard.Key;
   };
   private stats = {
     moveSpeed: PLAYER_SPEED,
@@ -118,6 +119,7 @@ export class GameScene extends Phaser.Scene {
   private playerBlip!: Phaser.GameObjects.Arc;
   private hudObjects: Phaser.GameObjects.GameObject[] = [];
   private worldDecor: Phaser.GameObjects.GameObject[] = [];
+  private chestPrompt!: Phaser.GameObjects.Text;
 
   constructor() {
     super('GameScene');
@@ -133,6 +135,15 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.drawWorldGround();
+    sharpenPixelArt(this, [
+      AssetKey.player,
+      AssetKey.enemy1,
+      AssetKey.chest,
+      AssetKey.lootBoot,
+      AssetKey.lootGlove,
+      ...TREE_KEYS,
+      ...BUSH_KEYS,
+    ]);
     Projectile.ensureTexture(this);
     ExperienceOrb.ensureTexture(this);
     Tower.ensureTextures(this);
@@ -239,13 +250,6 @@ export class GameScene extends Phaser.Scene {
     );
     this.physics.add.overlap(
       this.player,
-      this.chests,
-      this.onOpenChest,
-      undefined,
-      this,
-    );
-    this.physics.add.overlap(
-      this.player,
       this.loot,
       this.onCollectLoot,
       undefined,
@@ -277,10 +281,11 @@ export class GameScene extends Phaser.Scene {
       s: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
       d: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       space: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      e: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
 
     const hint = this.add
-      .text(width / 2, 50, 'WASD — движение · Space — рывок · мышь — прицел', {
+      .text(width / 2, 50, 'WASD — движение · Space — рывок · E — сундук · мышь — прицел', {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#e8eef7',
@@ -296,6 +301,19 @@ export class GameScene extends Phaser.Scene {
       this.dashTimerText,
       hint,
     );
+
+    this.chestPrompt = this.add
+      .text(0, 0, 'Press E', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffe14d',
+        stroke: '#1a1408',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(160)
+      .setVisible(false);
+    this.hudObjects.push(this.chestPrompt);
 
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 1, 1);
@@ -380,6 +398,7 @@ export class GameScene extends Phaser.Scene {
     this.updateTowers();
     this.syncOverheadBars();
     this.updateDashBar();
+    this.updateChestInteract();
     this.syncMinimapBlips();
   }
 
@@ -1051,11 +1070,48 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  private onOpenChest: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
-    _playerObj,
-    chestObj,
-  ) => {
-    const chest = chestObj as Chest;
+  private findChestInRange(): Chest | undefined {
+    let nearest: Chest | undefined;
+    let nearestDist = CHEST_OPEN_RADIUS;
+    for (const child of this.chests.getChildren()) {
+      const chest = child as Chest;
+      if (!chest.active) {
+        continue;
+      }
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, chest.x, chest.y);
+      if (dist <= nearestDist) {
+        nearest = chest;
+        nearestDist = dist;
+      }
+    }
+    return nearest;
+  }
+
+  private updateChestInteract(): void {
+    if (!this.chestPrompt) {
+      return;
+    }
+
+    if (this.gameOver || this.levelingUp) {
+      this.chestPrompt.setVisible(false);
+      return;
+    }
+
+    const chest = this.findChestInRange();
+    if (!chest) {
+      this.chestPrompt.setVisible(false);
+      return;
+    }
+
+    this.chestPrompt.setVisible(true);
+    this.chestPrompt.setPosition(chest.x, chest.y - 40);
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.e)) {
+      this.openChest(chest);
+    }
+  }
+
+  private openChest(chest: Chest): void {
     if (!chest.active || this.gameOver || this.levelingUp) {
       return;
     }
@@ -1065,6 +1121,7 @@ export class GameScene extends Phaser.Scene {
     const blip = chest.getData('blip') as Phaser.GameObjects.Arc | undefined;
     blip?.destroy();
     chest.destroy();
+    this.chestPrompt.setVisible(false);
 
     const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
     const loot = new Loot(
@@ -1074,10 +1131,11 @@ export class GameScene extends Phaser.Scene {
       Loot.randomKind(),
     );
     this.hideFromMinimap(loot);
-    loot.setScale(0.45);
+    const targetScale = loot.scale;
+    loot.setScale(targetScale * 0.4);
     this.tweens.add({
       targets: loot,
-      scale: 1.35,
+      scale: targetScale,
       duration: 220,
       ease: 'Back.Out',
       onComplete: () => {
@@ -1088,7 +1146,7 @@ export class GameScene extends Phaser.Scene {
         });
       },
     });
-  };
+  }
 
   private onCollectLoot: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (
     _playerObj,

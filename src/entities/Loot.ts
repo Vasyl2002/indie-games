@@ -3,7 +3,7 @@ import { AssetKey, fitDisplaySize } from '../systems/assets';
 
 export type LootKind = 'boot' | 'glove';
 
-export const LOOT_SIZE = 22;
+export const LOOT_SIZE = 36;
 
 const LOOT_TEXTURES: Record<LootKind, string> = {
   boot: AssetKey.lootBoot,
