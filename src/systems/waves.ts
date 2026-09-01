@@ -6,8 +6,9 @@ export const WAVE_SPAWN_MIN_MS = 400;
 export const WAVE_SPAWN_DECAY = 0.82;
 
 export const BOSS_WAVE = 5;
-export const ENEMY_CONTACT_DAMAGE_BASE = 6;
+export const ENEMY_CONTACT_DAMAGE_BASE = 2;
 export const ENEMY_CONTACT_DAMAGE_PER_WAVE = 1;
+export const ENEMY_WAVE1_SPEED_FACTOR = 0.7;
 
 export type WaveSnapshot = {
   wave: number;
@@ -33,6 +34,13 @@ export function enemyKeysForWave(wave: number): string[] {
 
 export function enemyContactDamage(wave: number): number {
   return ENEMY_CONTACT_DAMAGE_BASE + Math.max(0, wave - 1) * ENEMY_CONTACT_DAMAGE_PER_WAVE;
+}
+
+export function enemyMoveSpeed(wave: number, baseSpeed: number): number {
+  if (wave <= 1) {
+    return baseSpeed * ENEMY_WAVE1_SPEED_FACTOR;
+  }
+  return baseSpeed;
 }
 
 export function formatWaveClock(ms: number): string {

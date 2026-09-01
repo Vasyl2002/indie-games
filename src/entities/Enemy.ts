@@ -7,9 +7,14 @@ export const ENEMY_SPEED = 140;
 export const ENEMY_PUSH_FORCE = 70;
 export const ENEMY_PUSH_MAX = 420;
 export const ENEMY_MAX_HP = 40;
+export const ENEMY_ATTACK_COOLDOWN_MS = 1500;
+export const ENEMY_AGGRO_RADIUS = 240;
+export const ENEMY_LEASH_SPEED_FACTOR = 0.4;
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   hp = ENEMY_MAX_HP;
+  private nextAttackAt = 0;
+  private roamAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
   private readonly walkWobble: WalkWobbleState;
 
   constructor(scene: Phaser.Scene, x: number, y: number, textureKey: string = AssetKey.enemy1) {
@@ -44,7 +49,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return false;
   }
 
-  chase(target: Phaser.Types.Math.Vector2Like): void {
+  canDealContact(now: number): boolean {
+    return now >= this.nextAttackAt;
+  }
+
+  markContactDealt(now: number): void {
+    this.nextAttackAt = now + ENEMY_ATTACK_COOLDOWN_MS;
+  }
+
+  chase(target: Phaser.Types.Math.Vector2Like, speed: number): void {
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const length = Math.hypot(dx, dy);
@@ -53,7 +66,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    this.setVelocity((dx / length) * ENEMY_SPEED, (dy / length) * ENEMY_SPEED);
+    const nx = dx / length;
+    const ny = dy / length;
+
+    if (length > ENEMY_AGGRO_RADIUS) {
+      const roamX = Math.cos(this.roamAngle);
+      const roamY = Math.sin(this.roamAngle);
+      const leash = speed * ENEMY_LEASH_SPEED_FACTOR;
+      this.setVelocity((nx * 0.78 + roamX * 0.22) * leash, (ny * 0.78 + roamY * 0.22) * leash);
+      return;
+    }
+
+    this.setVelocity(nx * speed, ny * speed);
   }
 
   updateWalk(delta: number): void {

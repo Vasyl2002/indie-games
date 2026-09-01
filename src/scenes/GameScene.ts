@@ -7,8 +7,10 @@ import {
 } from '../entities/Boss';
 import {
   Enemy,
+  ENEMY_ATTACK_COOLDOWN_MS,
   ENEMY_PUSH_FORCE,
   ENEMY_PUSH_MAX,
+  ENEMY_SPEED,
 } from '../entities/Enemy';
 import { ExperienceOrb, XP_ORB_VALUE, XP_TO_LEVEL } from '../entities/ExperienceOrb';
 import { Loot } from '../entities/Loot';
@@ -56,12 +58,13 @@ import {
   WAVE_DURATION_MS,
   enemyContactDamage,
   enemyKeysForWave,
+  enemyMoveSpeed,
   spawnIntervalMs,
 } from '../systems/waves';
 
 const PLAYER_SPEED = 260;
 const PLAYER_SIZE = 56;
-const PLAYER_MAX_HP = 100;
+const PLAYER_MAX_HP = 150;
 const PLAYER_BASE_DAMAGE = 20;
 const IFRAME_MS = 500;
 const IFRAME_BLINK_MS = 80;
@@ -404,8 +407,11 @@ export class GameScene extends Phaser.Scene {
     bossArmor: number;
     bossHp: number;
     playerHp: number;
+    playerMaxHp: number;
     contactDamage: number;
     iframeMs: number;
+    enemySpeed: number;
+    attackCooldownMs: number;
   } {
     return {
       player: { x: this.player.x, y: this.player.y },
@@ -431,8 +437,11 @@ export class GameScene extends Phaser.Scene {
       bossArmor: this.boss?.armor ?? 0,
       bossHp: this.boss?.hp ?? 0,
       playerHp: this.playerHp,
+      playerMaxHp: this.playerMaxHp,
       contactDamage: enemyContactDamage(this.waveNumber),
       iframeMs: IFRAME_MS,
+      enemySpeed: enemyMoveSpeed(this.waveNumber, ENEMY_SPEED),
+      attackCooldownMs: ENEMY_ATTACK_COOLDOWN_MS,
     };
   }
 
@@ -627,7 +636,7 @@ export class GameScene extends Phaser.Scene {
       if (!enemy.active) {
         continue;
       }
-      enemy.chase(this.player);
+      enemy.chase(this.player, enemyMoveSpeed(this.waveNumber, ENEMY_SPEED));
       enemy.updateWalk(delta);
     }
   }
@@ -960,7 +969,7 @@ export class GameScene extends Phaser.Scene {
   private onPlayerEnemyCollide: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback =
     (playerObj, enemyObj) => {
       const player = playerObj as Phaser.Physics.Arcade.Sprite;
-      const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+      const enemy = enemyObj as Enemy;
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
       const length = Math.hypot(dx, dy) || 1;
@@ -968,6 +977,12 @@ export class GameScene extends Phaser.Scene {
       this.playerKnockback.x += (dx / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.y += (dy / length) * ENEMY_PUSH_FORCE;
       this.playerKnockback.limit(ENEMY_PUSH_MAX);
+
+      if (!enemy.canDealContact(this.time.now)) {
+        return;
+      }
+
+      enemy.markContactDealt(this.time.now);
       this.takeDamage(enemyContactDamage(this.waveNumber));
     };
 
